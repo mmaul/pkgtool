@@ -1,0 +1,107 @@
+include "PKGTOOL/pkgtool";
+
+open PackageInstaller;
+
+SETUP_LOG="scoop.log";
+
+var HOME = 
+  let ?h = Env::getenv "HOME" in
+    if h!="" then h 
+    elif PLAT_WIN32 then Env::getenv "USERPROFILE"
+    else ""
+    endif
+;
+if HOME == "" do
+    setup_fail$ "HOME environment variable is not set.  Please set HOME before building."; 
+	System::exit 1;
+done 
+
+var FELIX_HOME = HOME.join(".felix");
+
+var LITTERBOX = FELIX_HOME.join("litterbox");
+
+var LITTERBOX_URL = 'https://github.com/mmaul/litterbox.git';
+
+proc get_pkg (pkg:string,dest:string) {
+  //repo_url:string,dest:string
+  cfg = read_cfg(LITTERBOX.join(pkg).join("README.md"));
+  match get cfg 'PKG_URL' with
+  |Some ?pkg_url => { git_get(pkg_url,dest); }
+  |_ => { setup_fail("No package url present in package definition.");  }
+  endmatch;
+}
+
+proc build() {
+
+}
+
+proc install () {
+
+}
+
+proc search () {
+
+}
+
+proc refresh () {
+    git_get(LITTERBOX_URL,LITTERBOX);
+
+}
+
+proc run() {
+   C_hack::ignore(FileSystem::unlink_file(SETUP_LOG));    
+    var opts = Empty[string];
+    var valid_opts = 0;
+    match tail(System::args()) with
+    |Cons (?command,?options) => {
+      //for arg in options do
+      //  match arg with
+      //  |?option when option.startswith "-L" => { valid_opts++; EXTRA_LIBDIR += " " + arg; }
+      //  |?option when option.startswith "-I" => { valid_opts++; EXTRA_INCDIR += " " + arg; }
+      //  |?option => { opts += option; }
+      //  endmatch;
+      //done 
+
+        match command with
+        |?cmd when cmd == "get" => { 
+             banner("Getting package");
+             match options with
+             |Cons (?pkg,Empty[string]) => {
+                phase("Getting",proc () { get_pkg(pkg, "."); });
+             }
+             |_ => {
+               setup_fail("No package specified");
+             }
+             endmatch;
+           }
+        |?cmd when cmd == "install" => { 
+          banner("Installing package");
+          match options with
+          |Cons (?pkg,Empty[string]) => {
+            phase("Getting",proc () { get_pkg(pkg,LITTERBOX.join("build")); } );
+          }
+          |_ => {
+            setup_fail("No package specified");
+          }
+          endmatch;
+          phase("Building",build);
+          phase("Installing",install);
+        }
+      |?cmd when cmd == "search" => { 
+          banner("Search");
+          phase("Searching Repository",search);
+        }
+      |?cmd when cmd == "refresh" => { 
+          banner("Refresh");
+          phase("Refresh Repository",refresh);
+        }
+      |?cmd => { invalid_cmd(cmd); }
+      endmatch;
+    }
+    |_ => { invalid_cmd("?"); }
+    endmatch;
+
+
+}
+
+run();
