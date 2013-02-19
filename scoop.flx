@@ -1,6 +1,7 @@
 include "PKGTOOL/pkgtool";
 
-open PackageInstaller;
+open PkgTool;
+open Filename;
 
 SETUP_LOG="scoop.log";
 
@@ -24,7 +25,7 @@ var LITTERBOX_URL = 'https://github.com/mmaul/litterbox.git';
 
 proc get_pkg (pkg:string,dest:string) {
   //repo_url:string,dest:string
-  cfg = read_cfg(LITTERBOX.join(pkg).join("README.md"));
+  cfg = read_cfg((LITTERBOX.join(pkg)).join("README.md"));
   match get cfg 'PKG_URL' with
   |Some ?pkg_url => { git_get(pkg_url,dest); }
   |_ => { setup_fail("No package url present in package definition.");  }
@@ -50,6 +51,7 @@ proc refresh () {
 
 proc run() {
    C_hack::ignore(FileSystem::unlink_file(SETUP_LOG));    
+    banner("Felix package manager");
     var opts = Empty[string];
     var valid_opts = 0;
     match tail(System::args()) with
@@ -63,11 +65,10 @@ proc run() {
       //done 
 
         match command with
-        |?cmd when cmd == "get" => { 
-             banner("Getting package");
+        |?cmd when cmd == "scoop" => { 
              match options with
              |Cons (?pkg,Empty[string]) => {
-                phase("Getting",proc () { get_pkg(pkg, "."); });
+                phase(q"Scooping package $(pkg) from litterbox.",proc () { get_pkg(pkg, pkg); });
              }
              |_ => {
                setup_fail("No package specified");
@@ -78,14 +79,20 @@ proc run() {
           banner("Installing package");
           match options with
           |Cons (?pkg,Empty[string]) => {
-            phase("Getting",proc () { get_pkg(pkg,LITTERBOX.join("build")); } );
+            val pkg_dir = (LITTERBOX.join("build")).join(pkg);
+            //phase(q"Scooping package $(pkg) from litterbox.",
+            //      proc () { get_pkg(pkg,pkg_dir);
+            //});
+            phase(q"Installing $(pkg)", proc () {
+              task$ strip(run_cmd("flx "+pkg_dir.join("setup")+" install --build-dir="+ pkg_dir, "Installation failed."));
+              });
+            
           }
           |_ => {
             setup_fail("No package specified");
           }
           endmatch;
-          phase("Building",build);
-          phase("Installing",install);
+
         }
       |?cmd when cmd == "search" => { 
           banner("Search");

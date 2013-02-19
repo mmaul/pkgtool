@@ -37,8 +37,9 @@ var INDENT = "  ";
 var build_tasks = Empty[string*uint->void];
 var TEST_LOG = "setup.log";
 var SETUP_LOG = "setup.log";
+var BUILD_DIR = ".";
 
-class PackageInstaller {
+class PkgTool {
   // GLobal parameters
 
 // Utility definitions
@@ -174,6 +175,11 @@ fun read_cfg(fn:string) = {
   }
 
 // Testing definitions
+
+  proc imply(name:string) {
+    test_title(name);test_result(true);
+  }
+
   proc assert_equal(result:bool,name:string,fail_message:string) {
     test_title(name);
     test_result(result);
@@ -187,10 +193,26 @@ fun read_cfg(fn:string) = {
   proc assert_equal(result:bool) {
     assert_equal(result,"","");
   }
+ 
+  proc assert_true(result:bool,name:string,fail_message:string) {
+    test_title(name);
+    test_result(result);
+    if not result do display$ NC_(fail_message) + NL; done
+  }
+  proc assert_true(result:bool,name:string) {
+    assert_true(result,name,"");
+  }
+  proc assert_true(result:bool) {
+    test_result(result);
+  }
 
   proc setup_fail(s:string) {
     display$ red_(s) + NL + NL;
     System::exit(-1);
+  }
+
+  proc test_fail(s:string) {
+    setup_fail(s);
   }
 
   proc invalid_opts (opts:list[string],cmd:string) {
@@ -206,7 +228,7 @@ fun read_cfg(fn:string) = {
         (FLX_INSTALL_DIR.join("bin")).join("flx_cp") + " --verbose " +
         " '" + s + "' " + quote(p) + " '" + (INSTALL_ROOT.join(s)).join("${0}") +
         "'";
-      var out = run_cmd(cmd,"Error copying $(s)");
+      var out = run_cmd(cmd,q"Error copying $(s)");
       var err = match find(out,"Error") with |None => false |_ => true endmatch;
       val result=System::system(cmd);
       if result != 0 or err do 
@@ -266,8 +288,17 @@ fun read_cfg(fn:string) = {
   }
 
   proc run_test(name:string,noheader:bool) {
-    var flx_cmd = redir_err(((FLX_INSTALL_DIR.join("bin")).join("flx") +
-    " "+ FLX_OPTS + "test".join(name)),TEST_LOG);
+    var flx_cmd = redir_err(((FLX_INSTALL_DIR.join("bin")).join("flx --noinline ") +
+    " "+ FLX_OPTS + (BUILD_DIR.join("test")).join(name)),TEST_LOG);
+    if PLAT_WIN32 do
+      var run_test_bat:ofile = fopen_output(BUILD_DIR.join("RUN_TEST.BAT"));
+      write(run_test_bat,"SET PKG_CONFIG_PATH="+BUILD_DIR.join("config")+"\r\n");
+      write(run_test_bat,flx_cmd+"\r\n");
+      fclose(run_test_bat);
+      flx_cmd = BUID_DIR.join("RUN_TEST.BAT");
+    else
+      flx_cmd = "cd "+BUILD_DIR+";export PKG_CONFIG_PATH="+BUILD_DIR+"/config;" + flx_cmd;
+    done
     if not noheader do test_case(name); done
     log(INDENT+cyan_(flx_cmd)+NL);
     val result=System::system(flx_cmd);
@@ -326,7 +357,7 @@ fun read_cfg(fn:string) = {
   //$ during build phase
   proc default_test() {
     var file="";
-    match Directory::filesin("test") with
+    match Directory::filesin(BUILD_DIR.join("test")) with
     |Some ?files => { for file in files do
                        if not (file.startswith ".") and (file.endswith ".flx") 
                           and not (file.startswith "C") do
@@ -464,8 +495,6 @@ Command options are:
       match filetype(dest.join(".git")) with
                    //if 1 and 2 do
       |DIRECTORY => { 
-         //task$ strip(run_cmd(q"git --git-dir=$(dest)/.git fetch",
-         //"Error fetching package"));
          out := strip(run_cmd(q"git --git-dir=$(dest)/.git fetch",""));
          if not out == "" do task$ out; done
          task$ strip(run_cmd(q"git --git-dir=$(dest)/.git --work-tree=$(dest) merge origin/master",
@@ -494,13 +523,14 @@ virtual proc run() {
 }
 
 class SetupTool {
-open PackageInstaller;
+open PkgTool;
 
   //$ Executes package phases 
   proc run() {
     check_pkgconfig_path();
     // Read config
-    var cfg = read_cfg("README.md");
+    var cfg = read_cfg(BUILD_DIR.join("README.md"));
+println$ "GRR:"+BUILD_DIR.join("README.md");
     NAME = or_else(get cfg 'NAME') NAME;
     VERSION = or_else(get cfg 'VERSION') VERSION;
     AUTHOR = or_else(get cfg 'AUTHOR') AUTHOR;
@@ -521,6 +551,7 @@ open PackageInstaller;
         match arg with
         |?option when option.startswith "-L" => { valid_opts++; EXTRA_LIBDIR += " " + arg; }
         |?option when option.startswith "-I" => { valid_opts++; EXTRA_INCDIR += " " + arg; }
+        |?option when option.startswith "--build-dir=" => {println$ "GRR";  valid_opts++; BUILD_DIR = arg.[12 to]; }
         |?option => { opts += option; }
         endmatch;
       done 
