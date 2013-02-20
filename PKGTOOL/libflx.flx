@@ -1,12 +1,13 @@
 include "plat/config";
-
+include "PKGTOOL/libflx_interface";
+fun setup(config_data:string) = {
+  eprintln$ "flx:" + config_data;
+  return 0;
+}
 open Process;
-object flx() = {
+object libflx() implements libflx_interface = {
 
   //proc throwint : int = "throw $1;";
-  union result_code_t[T] = 
-  |OK of T
-  |ERR of int*string;
 
   // Felix version of THIS program (NOT the one being installed
   // if you're using flx to install Felix)
@@ -386,7 +387,7 @@ object flx() = {
     done
   }
 
-  gen xqt(cmd:string):result_code_t[string] = {
+  gen xqt(cmd:string):compiler_result_code_t[string] = {
     ECHO == 1 or dbug ?? fprintln (cerr, "cmd="+cmd);
     var now = #Time::time;
     var result,output = get_stdout_from(cmd);
@@ -1207,3 +1208,6 @@ debugln$ (">>"+str(cache_time));
  
 }
 
+
+export fun setup of (string) as "setup";
+export fun libflx of () as "libflx";

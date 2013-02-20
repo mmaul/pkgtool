@@ -1,0 +1,27 @@
+include "PKGTOOL/pkgtool";
+// Package parameters
+NAME = 'libflx';
+VERSION = '.01';
+AUTHOR = 'Mike Maul';
+AUTHOR_URL="";
+PKG_URL = 'https://github.com/mmaul/pkgtool';
+DESCRIPTION = 'Packaging Management Tool';
+LONG_DESCRIPTION = """
+
+""";
+CATEGORY=list("UTIL");
+LIBDIR = "PKGTOOL";
+
+open PkgTool;
+instance PkgTool {
+
+  proc build () {
+    task("Building libflx plugin");
+    log(run_cmd("flx -c PKGTOOL/libflx.flx","Error building libflx plugin."));
+    //run_test("C01-fltk.flx",true);
+  }
+
+}
+
+
+SetupTool::run();

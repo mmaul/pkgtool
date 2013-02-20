@@ -301,7 +301,7 @@ fun read_cfg(fn:string) = {
     done
     if not noheader do test_case(name); done
     log(INDENT+cyan_(flx_cmd)+NL);
-    val result=System::system(flx_cmd);
+    val result = System::system(flx_cmd);
     if result != 0 do  
       setup_fail(q"Error running test: $(name)");
     done
@@ -333,27 +333,10 @@ fun read_cfg(fn:string) = {
     setup_fail(on_error);
     return "";
   }
-
-  // Helper function to get fltk options
-  fun old_run_cmd (cmd:string,on_error:string) = {
-    log(INDENT+cyan_(cmd)+NL);
-    var h = popen_in(redir_err(cmd,SETUP_LOG));
-    if valid(h) do
-      var out = readln(h);
-      val ret_code = pclose(h);
-      log(INDENT+out);
-      if PLAT_WIN32 or (WIFEXITED(ret_code) and WEXITSTATUS(ret_code) == 0) do
-        return(out);
-      done
-    done
-    setup_fail(on_error);
-    return "";
-  }
-
   
-  
-  //$ Executes files in test directory not starting with 'C'
-  //$ 'C' is reserved for functionality tests that may be used
+  //$ Executes files in test directory not starting with 'C' or 'D'
+  //$ The 'C' prefix is reserved for functionality tests that may be used.
+  //$ The 'D' prefix is reserved for datafiles.
   //$ during build phase
   proc default_test() {
     var file="";
@@ -530,7 +513,6 @@ open PkgTool;
     check_pkgconfig_path();
     // Read config
     var cfg = read_cfg(BUILD_DIR.join("README.md"));
-println$ "GRR:"+BUILD_DIR.join("README.md");
     NAME = or_else(get cfg 'NAME') NAME;
     VERSION = or_else(get cfg 'VERSION') VERSION;
     AUTHOR = or_else(get cfg 'AUTHOR') AUTHOR;
