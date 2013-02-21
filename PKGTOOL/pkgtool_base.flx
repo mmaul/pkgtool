@@ -1,0 +1,700 @@
+include "plat/config";
+include "PKGTOOL/libflx_interface";
+open Filename;
+open FileStat;
+open Output_text_file[ofile];
+open Input_text_file[ifile];
+open Process;
+// Package parameters
+var cfg = strdict[string](); 
+var NAME = '';
+var VERSION = '';
+var AUTHOR = '';
+var AUTHOR_URL = '';
+var PKG_URL = '';
+var URL = '';
+var DESCRIPTION = '';
+var LONG_DESCRIPTION = """
+""";
+var LIBDIR = "";
+var REQUIRES = Empty[string];
+var TEST_REQUIRES = Empty[string];
+var CATEGORY = Empty[string];
+var LICENSE = "";
+//var PLATFORMS = list(PLAT_WIN32); 
+var config = #Config::config;
+var INSTALL_ROOT_TOPDIR=config.INSTALL_ROOT_TOPDIR;
+var INSTALL_ROOT=config.INSTALL_ROOT;
+var FLX_INSTALL_DIR=config.FLX_INSTALL_DIR;
+var EXTRA_LIBDIR = "";
+var EXTRA_INCDIR = "";
+val NL = "\n";
+if PLAT_WIN32 do
+  NL = "\r"+NL;
+done
+var LINELEN = 64;
+var FLX_OPTS = "";
+var INDENT = "  ";
+var build_tasks = Empty[string*uint->void];
+var TEST_LOG = "setup.log";
+var SETUP_LOG = "setup.log";
+var BUILD_DIR = ".";
+
+class PkgTool {
+  // GLobal parameters
+
+// Utility definitions
+
+  if PLAT_WIN32 do
+    fun quote(s:string)=>'"' + s + '"'; // windows filename quoting
+  else
+    fun quote(s:string)=>"'" + s + "'"; // unix prefers ' to stop expansion
+  done
+
+  fun join_list (strings:list[string],s:string) =>
+    fold_left (fun(x:string) (y:string):string => x + s + y) "" strings;
+
+  fun join_list (strings:list[string]) =>
+    join_list(strings," ");
+
+  gen fopen_append: string -> ofile = '::std::fopen($1.c_str(),"a")';
+
+  fun read_cfg(fn:string) = {
+    var fh = fopen_input(fn);
+    var cfg = strdict[string]();
+    var pat = RE2 ("^([A-Z_]+)\:\s*(.*?)\s*$");
+    var n = pat.NumberOfCapturingGroups;
+    if valid(fh) do
+      var eoc = false;
+      while not feof(fh) and not eoc do
+        ln := readln$ fh; 
+        if ln.startswith("-----") do
+          eoc = false;
+        else
+          v := _ctor_varray[StringPiece]$ (n+1).size, StringPiece "";
+          matches := _ctor_varray[StringPiece]$ (n+1).size, StringPiece "";
+          res := Re2::Match(pat,StringPiece ln,0, ANCHOR_START, v.stl_begin, v.len.int);
+          if res do
+            add cfg (str(get(v,1))) (str(get(v,2)));
+          done 
+        done 
+      done
+    done
+    return cfg;
+  }
+
+// Color coding
+  const cc:char = "(char)27";
+  fun  NC_ (unit) => cc + '[0m'; 
+  fun  NC_(s:string) => NC_() + s;
+  proc NC(unit)     { print$ NC_(""); }
+  proc NC(s:string)     { print$ NC_(s); }
+  fun blue_(unit) => cc + '[1;34m';
+  fun blue_(s:string) => blue_() + s + NC_();
+  proc blue(unit)   { print$ blue_(); }
+  proc blue(s:string)   { print$ blue_(s); }
+  fun BLUE_(unit) => cc + '[1;34;1m';
+  fun BLUE_(s:string) => BLUE_() + s + NC_();
+  proc BLUE(unit)   { print$ BLUE_(); }
+  proc BLUE(s:string)   { print$ BLUE_(s); }
+  fun cyan_(unit) => cc + '[0;36m';
+  fun cyan_(s:string) => cyan_()+ s + NC_();
+  proc cyan(unit)   { print$ cyan_(); }
+  proc cyan(s:string)   { print$ cyan_(s); }
+  fun CYAN_(unit) => cc + '[1;36;1m';
+  fun CYAN_(s:string) => CYAN_() + s + NC_();
+  proc CYAN(unit)   { print$ CYAN_(); }
+  proc CYAN(s:string)   { print$ CYAN_(s); }
+  fun green_(unit) => cc + '[0;32m';
+  fun green_(s:string) => green_() + s + NC_();
+  proc green(unit)  { print$ green_(); }
+  proc green(s:string)   { print$ green_(s); }
+  fun GREEN_(unit) => cc + '[1;32;1m';
+  fun GREEN_(s:string) => GREEN_() + s + NC_();
+  proc GREEN(unit)  { print$ GREEN_(); }
+  proc GREEN(s:string)   { println$ GREEN_(s); }
+  fun red_(unit) => cc + '[0;31m';
+  fun red_(s:string) => red_()+ s + NC_();
+  proc red(unit)   { print$ red_(); }
+  proc red(s:string)   { print$ red_(s); }
+  fun RED_(unit) => cc + '[0;31;1m';
+  fun RED_(s:string) => red_()+ s + NC_();
+  proc RED(unit)   { print$ red_(); }
+  proc RED(s:string)   { print$ red_(s); }
+  fun yellow_(unit) => cc + '[0;33m';
+  fun yellow_(s:string) => yellow_() + s + NC_();
+  proc yellow(unit) { print$ yellow_(); }
+  proc yellow(s:string)   { print$ yellow_(s); }
+  fun YELLOW_(unit) => cc + '[1;33;1m';
+  fun YELLOW_(s:string) => YELLOW_() + s + NC_();
+  proc YELLOW(unit) { print$ YELLOW_(); }
+  proc YELLOW(s:string)   { print$ YELLOW_(s); }
+  proc indent() { println$ INDENT; }
+
+// formatting
+  proc banner(name:string) {
+     display$ GREEN_(name) + NL;
+  }
+
+  proc phase(name:string) {
+    display$ cyan_(name) + NC_() + NL;
+    for c in name do display$ "-"; done
+    display$ NL;
+  }
+
+  proc phase(label:string,step_p:unit->void) {
+    phase$ label; step_p();
+  }
+
+  proc task_group(title:string) {
+    display$ blue_(title) + NL;
+  }
+
+  proc task(task:string) {
+    display$ yellow_(INDENT + task + NL);
+  }
+
+  proc task(task_s:string,task_p:unit->void) {
+    task(task_s); task_p();
+  }
+
+  proc test_case(title:string) {
+    display$ blue_(title) + NL;
+  }
+
+  proc test_result (status:bool) =>
+    display$ NC_("[") +
+     if status then green_(" OK ") else red_("FAIL") endif + 
+     NC_("]") + NL;
+  
+
+  proc test_title(name:string) {
+    var line = yellow_(INDENT+name+":"); 
+    for var dot in 0 upto (LINELEN - name.len.int) do
+      line += ".";
+    done
+    display$ line;
+  }
+
+// Testing definitions
+
+  proc imply(name:string) {
+    test_title(name);test_result(true);
+  }
+
+  proc assert_equal(result:bool,name:string,fail_message:string) {
+    test_title(name);
+    test_result(result);
+    if not result do display$ NC_(fail_message) + NL; done
+  }
+
+  proc assert_equal(result:bool,name:string) {
+   assert_equal(result,name,"");
+  }
+
+  proc assert_equal(result:bool) {
+    assert_equal(result,"","");
+  }
+ 
+  proc assert_true(result:bool,name:string,fail_message:string) {
+    test_title(name);
+    test_result(result);
+    if not result do display$ NC_(fail_message) + NL; done
+  }
+  proc assert_true(result:bool,name:string) {
+    assert_true(result,name,"");
+  }
+  proc assert_true(result:bool) {
+    test_result(result);
+  }
+
+  proc kudos(s:string) {
+    display$ green_(s) + NL + NL;
+  }
+
+  proc warning(s:string) {
+    display$ red_(s) + NL + NL;
+  }
+
+  proc setup_fail(s:string) {
+    warning(s+NL+"See "+SETUP_LOG+" for more information.");
+    System::exit(-1);
+  }
+
+  proc test_fail(s:string) {
+    setup_fail(s);
+  }
+
+  proc invalid_opts (opts:list[string],cmd:string) {
+    red("Invalid options:");yellow(join(opts));endl;help(cmd);
+  }  
+  
+  proc invalid_cmd(cmd:string) {
+    red("Invalid command:"); yellow(cmd); endl; help(); 
+  }      
+
+  proc cp_root(s:string,p:string) {
+    cp_root(s,p,INSTALL_ROOT);
+  }
+
+  proc cp_root(s:string,p:string,dest:string) {
+      val cmd = 
+        (FLX_INSTALL_DIR.join("bin")).join("flx_cp") //+ " --verbose " +
+        " '" + s + "' " + quote(p) + " '" + dest.join("${0}") +
+        "'";
+      log(cmd);
+     //var out = run_cmd(cmd,q"Error copying $(s)");
+     //var err = match find(out,"Error") with |None => false |_ => true endmatch;
+      val result=System::system(cmd);
+      if result != 0 /*or err*/ do 
+         setup_fail((q"Error copying $(s) to ") + (INSTALL_ROOT.join(s)));
+      done
+    }
+
+  proc check_pkgconfig_path (unit) {
+    var pkgconfig_path = Env::getenv("PKG_CONFIG_PATH");
+    if pkgconfig_path == "" do
+      red("Add the environmental variable below to your environment:");endl;
+      if PLAT_WIN32 do
+        NC(INDENT+"set PKG_CONFIG_PATH=.\\config");endl;
+      else
+        NC(INDENT+"PKG_CONFIG_PATH=./config; export PKG_CONFIG_PATH");endl;
+      done
+      System::exit(0);
+    done
+  }
+
+  proc log(message:string) {
+    log(message,SETUP_LOG);
+  }
+  
+  proc log(message:string,log_file:string) {
+    if not log_file == "" do
+      var log_h = fopen_append (log_file);
+      if valid(log_h) do
+        write(log_h,message);
+        fclose(log_h);
+      done
+    done
+  }
+
+  proc display(message:string,log_file:string) {
+    print$ message; log(message,log_file);
+  }
+  proc display(message:string) {
+    display(message,SETUP_LOG);
+  }
+
+  fun >>(cmd:string,to_file:string):string => cmd + 
+    if PLAT_WIN32 then q">>$to_file" else q">> $(to_file) 2>&1" endif;
+
+  fun redir_err (cmd:string,to_file:string):string => 
+    if PLAT_WIN32 then 
+      // Can't do err redirect in WIN32 so don't
+      cmd
+    else 
+      if not to_file == "" then
+        q"$(cmd) 2>> $(to_file)"
+      else
+        cmd
+      endif
+    endif;
+
+  proc default_build() {
+    
+  }
+
+  virtual proc build() {
+    default_build();
+  }
+
+  proc run_test(name:string,noheader:bool) {
+    var flx_cmd = redir_err(((FLX_INSTALL_DIR.join("bin")).join("flx --noinline ") +
+    " "+ FLX_OPTS + (BUILD_DIR.join("test")).join(name)),TEST_LOG);
+    if PLAT_WIN32 do
+      var run_test_bat:ofile = fopen_output(BUILD_DIR.join("RUN_TEST.BAT"));
+      write(run_test_bat,"SET PKG_CONFIG_PATH="+BUILD_DIR.join("config")+"\r\n");
+      write(run_test_bat,flx_cmd+"\r\n");
+      fclose(run_test_bat);
+      flx_cmd = BUID_DIR.join("RUN_TEST.BAT");
+    else
+      flx_cmd = "cd "+BUILD_DIR+";export PKG_CONFIG_PATH="+BUILD_DIR+"/config;" + flx_cmd;
+    done
+//println $flx_cmd;
+    if not noheader do test_case(name); done
+    log(INDENT+cyan_(flx_cmd)+NL);
+    display$ run_cmd(flx_cmd,"");
+//    val result = System::system(flx_cmd);
+//    if result != 0 do  
+//      setup_fail(q"Error running test: $(name)");
+//    done
+  }
+
+  proc run_test(name:string) {
+    run_test(name,false);
+  }
+  if PLAT_WIN32 do
+    // Cross your fingers and hope for the best on Win 32
+    fun WIFEXITED(x:process_status_t) => true;
+    fun WEXITSTATUS(x:process_status_t) => 0;
+  done
+  fun run_cmd (cmd:string,on_error:string) = {
+    return run_cmd(cmd,on_error,false);
+  }
+
+
+  fun run_cmd (cmd:string,on_error:string,echo:bool) = {
+    log(INDENT+cyan_(cmd)+NL);
+    var h = popen_in(redir_err(cmd,SETUP_LOG));
+    if valid(h) do
+    var out = "";
+    while not feof(h) do
+      var ln = readln(h);
+      if echo do print$ ln; done
+      out += ln;
+    done;
+      val ret_code = pclose(h);
+      log(INDENT+out);
+      if PLAT_WIN32 or (WIFEXITED(ret_code) and WEXITSTATUS(ret_code) == 0) do
+        return(out);
+      done
+    done
+    setup_fail(on_error);
+    return "";
+  }
+  
+  fun default_run_flx(file:string,on_error:string) = {
+    return run_cmd("flx " + file,on_error);
+  }
+
+  virtual fun run_flx(file:string,on_error:string) = {
+    return default_run_flx(file,on_error);
+  }
+  //$ Executes files in test directory not starting with 'C' or 'D'
+  //$ The 'C' prefix is reserved for functionality tests that may be used.
+  //$ The 'D' prefix is reserved for datafiles.
+  //$ during build phase
+  proc default_test() {
+    var file="";
+    match Directory::filesin(BUILD_DIR.join("test")) with
+    |Some ?files => { for file in files do
+                       if not (file.startswith ".") and (file.endswith ".flx") 
+                          and not (file.startswith "C") and 
+                          not (file.startswith "D") do
+                         run_test(file);                    
+                       done
+                     done
+                   }
+    |_ => { }
+    endmatch;
+  }
+
+  virtual proc test() {
+    default_test();
+  }
+//'examples[/\\].(.*\.flx)'
+
+  proc default_install() {
+    task("Installing Library files");
+    cp_root(BUILD_DIR, LIBDIR+"[/\\\].(.*\.flx)",INSTALL_ROOT.join("lib"));
+    task("Installing package config files");
+    cp_root(BUILD_DIR, "config[/\\\].(.*\.fpc)");
+    task("Installing package documentation and examples");
+    cp_root(BUILD_DIR, "README.md",((INSTALL_ROOT.join("web")).join("packages")).join(NAME));
+    cp_root(BUILD_DIR, "examples[/\\\].(.*\.flx)",((INSTALL_ROOT.join("web")).join("packages")).join(NAME));
+  }
+
+
+  proc default_install__() {
+    task("Installing Library files");
+    cp_root(BUILD_DIR.join(LIBDIR), ".*.flx","lib");
+    task("Installing package config files");
+    cp_root(BUILD_DIR.join("config"), ".*.fpc");
+    task("Installing package documentation and examples");
+    cp_root(BUILD_DIR, "README.md",("web".join("packages")).join(NAME));
+    cp_root(BUILD_DIR.join("examples"), ".*.flx",("web".join("packages")).join(NAME));
+  }
+
+  virtual proc install() {
+    default_install();
+  }
+
+  proc default_clean() {
+   for dir in list("test",LIBDIR,"bin") do
+      var dir_path = BUILD_DIR.join(dir);
+      match filetype(dir_path) with
+      |DIRECTORY => {
+        task_group("Cleaning " + dir); 
+        match Directory::filesin(dir_path) with
+        |Some ?files => { 
+          for file in files do
+                       if not (file.startswith ".") and 
+                          (file.endswith #Config::config.EXT_SHLIB) do
+//                          C_hack::ignore(FileSystem::unlink_file(dir_path.join(file)));
+                          assert_true(FileSystem::unlink_file(dir_path.join(file)) == 0,
+                            "Deleting " + file);
+                       done
+                     done
+                   }
+        |_ => {}
+        endmatch;
+      }
+      |_ => { }
+      endmatch;
+    done
+    print NL;    
+  }
+
+  virtual proc clean() {
+    default_clean();
+  }
+
+  proc help(unit) {
+    println$ """
+Common commands: (see '--help-commands' for more)
+
+  setup.flx build          performs config and build tasks
+  setup.flx test           performs config, build and test tasks
+  setup.flx install        performs config, build, test and install tasks
+  setup.flx force          performs config, build and install tasks
+  setup.flx info           will display package information
+  setup.flx clean          will delete generated files
+  setup.flx help [command] will display detailed help for command
+Global options:
+  --help (-h)         show detailed help message
+
+usage: setup.flx cmd [cmd_opts] 
+   or: setup.flx --help
+""";
+NC();
+}
+
+  proc help_command (command:list[string]) {
+    match command with
+    |Cons (?cmd,_) when cmd == 'build'   => { println$ """
+Description: Configures and performs build tasks.
+Usage: setup.flx build [cmd opts]
+Command options are:
+  -L[C/C++ library path]
+    Specifies library path not defined in the standard library search path
+    on your system. The supplied library path is stored in the package config
+    file. 
+  -I[C/C++ include path]
+    Specifies library path not defined in the standard include search path
+    on your system. The supplied library path is stored in the package config
+    file.
+""";
+    }
+    |Cons (?cmd,_) when cmd == 'test'    => {
+      println$ """
+Description: Configures and performs build tasks and executes package tests.
+
+Usage: setup.flx test [cmd opts]
+
+Command options are:
+  -L[C/C++ library path]
+    Specifies library path not defined in the standard library search path
+    on your system. The supplied library path is stored in the package config
+    file. 
+  -I[C/C++ include path]
+    Specifies library path not defined in the standard include search path
+    on your system. The supplied library path is stored in the package config
+    file.
+""";
+      }
+    |Cons (?cmd,_) when cmd == 'install' => {
+      println$ """
+Description: Configures, performs build tasks, package tests and installs
+package to INSTALL_ROOT. If this task is not ran as a user with sufficient
+priviledge to write to INSTALL_ROOT it will fail.
+
+Usage: setup.flx install [cmd opts]
+
+Command options are:
+  -L[C/C++ library path]
+    Specifies library path not defined in the standard library search path
+    on your system. The supplied library path is stored in the package config
+    file. 
+  -I[C/C++ include path]
+    Specifies library path not defined in the standard include search path
+    on your system. The supplied library path is stored in the package config
+    file.
+""";
+      }
+    |Cons (?cmd,_) when cmd == 'force'   => {
+      println$ """
+Description: Configures, performs build tasks and installs
+package to INSTALL_ROOT. This command is useful if some package tests fail
+but you still wish to install the package. If this task is not ran as a user 
+with sufficient priviledge to write to INSTALL_ROOT it will fail.
+
+Usage: setup.flx install [cmd opts]
+
+Command options are:
+  -L[C/C++ library path]
+    Specifies library path not defined in the standard library search path
+    on your system. The supplied library path is stored in the package config
+    file. 
+  -I[C/C++ include path]
+    Specifies library path not defined in the standard include search path
+    on your system. The supplied library path is stored in the package config
+    file.
+""";
+      }
+    |Cons (?cmd,_) when cmd == 'clean'    => {
+      println$ """
+Description: Removes generated files.
+""";
+      }
+    |?cmd                       => {
+      invalid_cmd(join(cmd));
+    }
+  endmatch;
+  }
+
+  proc git_get(dest:string) {
+    match cfg.get 'PKG_URL' with
+    |Some ?url => { git_get(url,dest); }
+    |_ => { setup_fail$ "No PKG_URL defined in package README.md."; }
+    endmatch;
+  }
+
+  proc git_get(url:string,dest:string) {
+    // 1 Check if dir exists
+    match filetype(dest) with
+    |DIRECTORY => {  // 2 Check if dir is git dir
+      match filetype(dest.join(".git")) with
+                   //if 1 and 2 do
+      |DIRECTORY => { 
+         out := strip(run_cmd(q"git --git-dir=$(dest)/.git fetch",""));
+         if not out == "" do task$ out; done
+         task$ strip(run_cmd(q"git --git-dir=$(dest)/.git --work-tree=$(dest) merge origin/master",
+         "Error Merging package"));
+      }
+      |NONEXISTANT => { setup_fail$ q"Unable to pull repository because $(dest)/ exists and is does not currently contain repository contents. Please move $(dest)."; }
+      |NOPERMISSION => { setup_fail$ "Unable to pull repository because you do not have permission to access $(DEST).";}
+      |REGULAR => { setup_fail$ "Unable to pull repository because a file exists having the same name as $(dest). Move the file to fix this.";}
+      |_ => {println$ "Unable to pull repository for an unspecified reason.";}
+    endmatch;
+    }
+    |NONEXISTANT => { 
+      task$ run_cmd(q"git clone $(url) $(dest)",
+        "Error cloning package."); 
+    }
+    |NOPERMISSION => { setup_fail$ "Unable to pull repository because you do not have permission to access $(dest).";}
+    |REGULAR => { setup_fail$ "Unable to pull repository because a file exists having the same name as $(dest). Move the file to fix this.";}
+    |_ => { setup_fail$ "Unable to pull repository for an unspecified reason.";}
+    endmatch;
+  }
+
+virtual proc run() {
+
+}
+
+}
+
+class SetupTool {
+open PkgTool;
+
+  //$ Executes package phases 
+  proc run() {
+    check_pkgconfig_path();
+    // Read config
+    var cfg:strdict[string];
+    var opts = Empty[string];
+    var valid_opts = 0;
+    match tail(System::args()) with
+    |Cons (?command,?options) => {
+      for arg in options do
+        match arg with
+        |?option when option.startswith "-L" => { valid_opts++; EXTRA_LIBDIR += " " + arg; }
+        |?option when option.startswith "-I" => { valid_opts++; EXTRA_INCDIR += " " + arg; }
+        |?option when option.startswith "--build-dir=" => {valid_opts++; BUILD_DIR = arg.[12 to]; }
+        |?option => { opts += option; }
+        endmatch;
+      done 
+    SETUP_LOG = if (SETUP_LOG == "") then SETUP_LOG else 
+                  BUILD_DIR.join(SETUP_LOG) endif;
+    TEST_LOG = if (TEST_LOG == "") then TEST_LOG else 
+                  BUILD_DIR.join(TEST_LOG);
+    cfg = read_cfg(BUILD_DIR.join("README.md"));
+    NAME = or_else(get cfg 'NAME') NAME;
+    VERSION = or_else(get cfg 'VERSION') VERSION;
+    AUTHOR = or_else(get cfg 'AUTHOR') AUTHOR;
+    URL = or_else(get cfg 'URL') URL;
+    DESCRIPTION = or_else(get cfg 'DESCRIPTION') DESCRIPTION;
+    LONG_DESCRIPTION = or_else(get cfg 'LONG_DESCRIPTION') LONG_DESCRIPTION;
+    LIBDIR = or_else(get cfg 'LIBDIR') LIBDIR;
+    REQUIRES = split(or_else(get cfg 'REQUIRES') (join_list(REQUIRES,",")));
+    TEST_REQUIRES = split(or_else(get cfg 'TEST_REQUIRES') (join_list(TEST_REQUIRES,",")));
+    CATEGORY = split(or_else(get cfg 'CATEGORY') (join_list(CATEGORY,",")));
+    LICENSE = or_else(get cfg 'LICENSE') '';
+    if not SETUP_LOG == "" do 
+      C_hack::ignore(FileSystem::unlink_file(SETUP_LOG));    
+    done
+      match command with
+      |?cmd when cmd == "build" => { 
+        if (len(options) - valid_opts) > size(0) do
+          invalid_opts(options,command);
+        else
+	  banner(q"Building package $(NAME)");
+          phase("Build",build);
+        done
+        }
+      |?cmd when cmd == "test" => { 
+        if (len(options) - valid_opts) > size(0) do
+          invalid_opts(options,command);
+        else
+          banner(q"Testing package $(NAME)");
+          phase("Build",build);
+          phase("Test",test);
+        done
+        }
+      |?cmd when cmd == "install" => { 
+        if (len(options) - valid_opts) > size(0) do
+          invalid_opts(options,command);
+        else
+          banner(q"Installing package $(NAME)");
+          phase("Build",build);
+          phase("Test",test);
+          phase("Install",install);
+          phase("Clean",clean);
+        done
+        }
+      |?cmd when cmd == "force" => {
+        if (len(options) - valid_opts) > size(0) do
+          invalid_opts(options,command);
+        else
+          banner(q"Installing with force package $(NAME)"); 
+          phase("Build",build);
+          phase("Install",install);
+          phase("Clean",clean);
+        done
+        }
+        |?cmd when cmd == "clean" => { 
+        if (len(options) - valid_opts) > size(0) do
+          invalid_opts(options,command);
+        else
+          banner(q"Cleaning package $(NAME)");
+          phase("Clean",clean);
+        done
+        }
+      |?cmd when cmd == "help" => {
+        help_command(options);
+        } 
+      |?cmd when cmd == "info" => {
+        banner("Package Info");
+        task(q"Name: $(NAME)");
+        task(q"VERSION: $(VERSION)");
+        task(q"AUTHOR: $(AUTHOR)");
+        task(q"URL: $(URL)");
+        task(q"Description: $(DESCRIPTION)");
+        display$ LONG_DESCRIPTION;
+        } 
+      |?cmd => { invalid_cmd(cmd); }
+      endmatch; 
+      }
+    |?s => { help(); }
+    endmatch;
+  }
+}

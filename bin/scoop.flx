@@ -1,5 +1,5 @@
-SETUP_LOG="scoop.log";
-C_hack::ignore(FileSystem::unlink_file(SETUP_LOG));
+SETUP_LOG="";//"scoop.log";
+//C_hack::ignore(FileSystem::unlink_file(SETUP_LOG));
 include "PKGTOOL/pkgtool";
 
 open PkgTool;
@@ -210,13 +210,44 @@ proc invalid_cmd(cmd:string) {
       help();  
 }
 
+proc install(cmd:string,options:list[string]) {
+  banner("Installing package");
+  match options with
+  |Cons (?pkg,Empty[string]) => {
+    val pkg_dir = (LITTERBOX.join("build")).join(pkg);
+    phase(q"Scooping package $(pkg) from litterbox.",
+      proc () { get_pkg(pkg,pkg_dir); });
+    val result = System::system("flx --noinline " +
+      pkg_dir.join("setup")+" " + cmd + " --build-dir=" + pkg_dir);
+    if result != 0 do  
+      warning("Installation failed");
+    else
+      kudos("Installation successful");
+      var result_code = 0;
+      if PLAT_WIN32 do
+        task "Removing build directory:" + pkg_dir;
+        //result_code=system("rd /S /Q "+pkg_dir);
+      else
+        //result_code=system("rm -rf "+pkg_dir);
+      done
+        if not result_code == 0 do
+          warning$ "Unable to remove build directory:"+pkg_dir;
+        done
+          kudos("Installation complete");
+    done
+  }
+  |_ => {
+    setup_fail("No package specified");
+  }
+  endmatch;
+}
+
 proc run() {
-    
     banner("Felix package manager");
     match filetype(LITTERBOX) with
     |NONEXISTANT => { phase("Initializing package repository",refresh);}
     |DIRECTORY => { }
-    |_ => { setup_fail("Error creating:"+LITTERBOX+", try removing if it exists or checking permissions"); }
+    |_ => { setup_fail("Error creating:"+LITTERBOX + ", try removing if it exists or checking permissions"); }
     endmatch;
     var opts = Empty[string];
     var valid_opts = 0;
@@ -233,28 +264,9 @@ proc run() {
              }
              endmatch;
            }
-        |?cmd when cmd == "install" => { 
-          banner("Installing package");
-          match options with
-          |Cons (?pkg,Empty[string]) => {
-            val pkg_dir = (LITTERBOX.join("build")).join(pkg);
-            phase(q"Scooping package $(pkg) from litterbox.",
-                  proc () { get_pkg(pkg,pkg_dir);
-            });
-            phase(q"Installing $(pkg)", proc () {
-              //print( strip(run_cmd(
-C_hack::ignore(System::system("flx --noinline "+pkg_dir.join("setup")+" install --build-dir="+ pkg_dir));//, "Installation failed.",true)
-//));
-
-              });
-            
-          }
-          |_ => {
-            setup_fail("No package specified");
-          }
-          endmatch;
-
-        }
+        |?cmd when cmd == "install" => { install(cmd,options); }
+        |?cmd when cmd == "force" => { install(cmd,options); }
+          
       |?cmd when cmd == "search" => { 
           banner("Search");
           phase("packages matching:"+str(options),(search options) );
@@ -265,7 +277,8 @@ C_hack::ignore(System::system("flx --noinline "+pkg_dir.join("setup")+" install 
         }
       |?cmd when cmd == "info" => { 
           banner("Info");
-          phase("packages info:" + ((head(options)).or_else ""),(info ((head(options)).or_else "")) );
+          phase("packages info:" + ((head(options)).or_else ""),
+            (info ((head(options)).or_else "")) );
         }
       |?cmd when cmd == "refresh" => { 
           banner("Refresh");
