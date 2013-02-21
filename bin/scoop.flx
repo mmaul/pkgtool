@@ -1,10 +1,9 @@
+SETUP_LOG="scoop.log";
+C_hack::ignore(FileSystem::unlink_file(SETUP_LOG));
 include "PKGTOOL/pkgtool";
 
 open PkgTool;
 open Filename;
-
-SETUP_LOG="scoop.log";
-
 var HOME = 
   let ?h = Env::getenv "HOME" in
     if h!="" then h 
@@ -32,40 +31,199 @@ proc get_pkg (pkg:string,dest:string) {
   endmatch;
 }
 
-proc build() {
 
-}
+fun head[T] (l:list[T]) => match l with |Cons[T] (?hd,_) => Some hd |Empty[T] => None[T] endmatch;
 
-proc install () {
+proc search (opts:list[string]) () {
+   val num_opts = int(len(opts));
+   var not_even_num_args = (num_opts > 1) and ((num_opts % 2) != 0);
+   if (num_opts < 1) or not_even_num_args do
+     setup_fail("""search requires ether a single name or an even number of terms 
+(e.g. field search_string ...)""");
+   done
+   fun to_assoc_list[T] (l:list[T]):list[T^2] =>
+     match l with
+     |Cons (?k,Cons(?v,?tl)) => Cons((k,v) , to_assoc_list(tl))
+     |Empty[T] => Empty[T^2]
+     endmatch;
 
-}
 
-proc search () {
-
+   var search = if num_opts == 1 then 
+     list[string^2](("NAME",(let Some ?v = head(opts) in v)))
+   else 
+     to_assoc_list(opts)     
+   endif;
+   
+   match Directory::filesin(LITTERBOX) with
+   |Some ?files => { 
+     for file in filter (fun (f:string) => not f == "build" and not f.startswith ".") files do
+       var dir_path = LITTERBOX.join(file);
+        match filetype(dir_path) with
+       |DIRECTORY => {
+        var pkg_readme = dir_path.join("README.md");
+        match filetype(pkg_readme) with
+        |REGULAR => { 
+          var pkg = read_cfg(pkg_readme);
+          for itm in search do
+            match get pkg (toupper(itm.0)) with
+            |Some ?pkg_v => { 
+              match find((toupper(pkg_v)), (toupper(itm.1))) with
+              |Some _ => { task(((get pkg "NAME").or_else "UNKNOWN") + " " ((get pkg "DESCRIPTION").or_else ""));
+                           goto enough; }
+              |_ => {}
+              endmatch;
+            }
+	    |_ => { }
+            endmatch;  
+          done
+enough:>
+        }
+        |_ => {}
+        endmatch;
+      }
+      |_ => {}
+      endmatch;
+      
+    done
+  }
+  |_ => {}
+  endmatch;
 }
 
 proc refresh () {
-    git_get(LITTERBOX_URL,LITTERBOX);
+  git_get(LITTERBOX_URL,LITTERBOX);
 
 }
 
+proc info (pkg:string) () {
+  var readme = (LITTERBOX.join(pkg)).join("README.md");
+  match filetype(readme) with
+  |REGULAR => { 
+    val cfg = read_cfg(readme);
+    task("NAME: " + (get cfg 'NAME').or_else "");
+    task("DESCRIPTION: " + (get cfg 'DESCRIPTION').or_else "");
+    task("VERSION: " + (get cfg 'VERSION').or_else "");
+    task("PKG_URL: " + (get cfg 'PKG_URL').or_else "");
+    task("AUTHOR: " + (get cfg 'AUTHOR').or_else "");
+    task("AUTHOR_URL: " + (get cfg 'AUTHOR_URL').or_else "");
+    display$ "----"+NL;
+    display(((get cfg 'LONG_DESCRIPTION').or_else "")+NL);
+  }
+  |_ => { setup_fail(q"No package README.md found for $(pkg) or $(pkg) does not exist");}
+  endmatch; 
+}
+
+  proc help(unit) {
+    println$ """
+scoop: A distributed package manager for Felix
+
+  scoop get     [package]  Pull package from litterbox to current working directory
+  scoop list               Lists all packages on litterbox
+  scoop search  [package]  Searches for package on litterbox
+  scoop info    [package]  Displays package info
+  scoop install [package]  Pull, builds and install package
+  scoop refresh            Refreshes litterbox package directory cache
+  scoop help               Displays this message
+  scoop help    [command]  Displays detailed help for command
+
+usage: scoop cmd [package] 
+
+""";
+NC();
+}
+
+  proc help_command (command:list[string]) {
+    match command with
+    |Empty => {help();}
+    |Cons (?cmd,_) when cmd == 'get'   => { println$ """
+Description: Pulls package from remote package source into the current working directory and places into a driectory with the same name as the package.
+
+For package build options run 'flx setup help' inside the package directory.
+Refer to the package README.md as well. 
+Usage: scoop get [package]
+
+""";
+    }
+    |Cons (?cmd,_) when cmd == 'list'    => {
+      println$ """
+Description: List all available packages in the litterbox package directory.
+
+Usage: setup.flx list
+""";
+      }
+    |Cons (?cmd,_) when cmd == 'search' => {
+      println$ """
+Description: Searchs package definitions. Given one argument 'scoop search' will
+search for a package name that is a partial match for the given argument.
+For example:  scoop search x
+Will find the x11 package
+Given an even number of argument search will search is specific package 
+definition fields for string matches. Package definition fields are 
+ NAME , DESCRIPTION, CATEGORY, VERSION, AUTHOR, PKGDIR, PKG_URL, LICENSE,
+ REQUIRES
+For example: 'scoop search CATEGORY GUI' will match the 'fltk' and 'x11' packages.
+Multiple package fields can be specified. For example: 'scoop search CATEGORY GUI NAME fltk' will only match the 'fltk' package.
+
+Package field names and match strings are case independant.
+
+Usage: scoop search [package name]
+       scoop search [<package field> <string match>]...
+""";
+      }
+    |Cons (?cmd,_) when cmd == 'info'   => {
+      println$ """
+Description: Displays detailed package info.
+
+Usage: scoop info [package]
+
+""";
+      }
+    |Cons (?cmd,_) when cmd == 'install'    => {
+      println$ """
+Description: Install package into Felix root installation. This command pulls 
+the package from the remote package to the directory HOME/.felix/.litterbox/build/<package>.
+It then proceeds to execute the packages install script.
+
+Usage: scoop install [package]
+""";
+      }
+   |Cons (?cmd,_) when cmd == 'refresh'    => {
+      println$ """
+Description: Pull a updated copy of the litterbox package directory.
+
+Usage: scoop refresh
+""";
+      }
+     |Cons (?cmd,_) when cmd == 'help'    => {
+      println$ """
+Description:  Displays help.
+""";
+      }
+    |?cmd                       => {
+      invalid_cmd(join_list(cmd));
+    }
+  endmatch;
+  }
+
+proc invalid_cmd(cmd:string) {
+      warning("Invalid commaind:"+cmd);
+      help();  
+}
+
 proc run() {
-   C_hack::ignore(FileSystem::unlink_file(SETUP_LOG));    
+    
     banner("Felix package manager");
+    match filetype(LITTERBOX) with
+    |NONEXISTANT => { phase("Initializing package repository",refresh);}
+    |DIRECTORY => { }
+    |_ => { setup_fail("Error creating:"+LITTERBOX+", try removing if it exists or checking permissions"); }
+    endmatch;
     var opts = Empty[string];
     var valid_opts = 0;
     match tail(System::args()) with
     |Cons (?command,?options) => {
-      //for arg in options do
-      //  match arg with
-      //  |?option when option.startswith "-L" => { valid_opts++; EXTRA_LIBDIR += " " + arg; }
-      //  |?option when option.startswith "-I" => { valid_opts++; EXTRA_INCDIR += " " + arg; }
-      //  |?option => { opts += option; }
-      //  endmatch;
-      //done 
-
         match command with
-        |?cmd when cmd == "scoop" => { 
+        |?cmd when cmd == "get" => { 
              match options with
              |Cons (?pkg,Empty[string]) => {
                 phase(q"Scooping package $(pkg) from litterbox.",proc () { get_pkg(pkg, pkg); });
@@ -80,11 +238,14 @@ proc run() {
           match options with
           |Cons (?pkg,Empty[string]) => {
             val pkg_dir = (LITTERBOX.join("build")).join(pkg);
-            //phase(q"Scooping package $(pkg) from litterbox.",
-            //      proc () { get_pkg(pkg,pkg_dir);
-            //});
+            phase(q"Scooping package $(pkg) from litterbox.",
+                  proc () { get_pkg(pkg,pkg_dir);
+            });
             phase(q"Installing $(pkg)", proc () {
-              task$ strip(run_cmd("flx "+pkg_dir.join("setup")+" install --build-dir="+ pkg_dir, "Installation failed."));
+              //print( strip(run_cmd(
+C_hack::ignore(System::system("flx --noinline "+pkg_dir.join("setup")+" install --build-dir="+ pkg_dir));//, "Installation failed.",true)
+//));
+
               });
             
           }
@@ -96,11 +257,22 @@ proc run() {
         }
       |?cmd when cmd == "search" => { 
           banner("Search");
-          phase("Searching Repository",search);
+          phase("packages matching:"+str(options),(search options) );
+        }
+      |?cmd when cmd == "list" => { 
+          banner("List");
+          phase("package listing:",(search (list('NAME','')) ));
+        }
+      |?cmd when cmd == "info" => { 
+          banner("Info");
+          phase("packages info:" + ((head(options)).or_else ""),(info ((head(options)).or_else "")) );
         }
       |?cmd when cmd == "refresh" => { 
           banner("Refresh");
           phase("Refresh Repository",refresh);
+        }
+      |?cmd when cmd == "help" => {
+        help_command(options);
         }
       |?cmd => { invalid_cmd(cmd); }
       endmatch;

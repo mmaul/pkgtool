@@ -1,7 +1,5 @@
 include "PKGTOOL/libflx_interface";
 include "plat/config";
-//open Filename;
-//open FileSystem;
 
 var libflx-install-path = (#Config::config.INSTALL_ROOT.Filename::join("lib")).Filename::join("PKGTOOL");
 var libflx-dll-base-name = "libflx";

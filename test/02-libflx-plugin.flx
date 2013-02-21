@@ -1,5 +1,5 @@
 include "PKGTOOL/libflx_interface";
-include "PKGTOOL/pkgtool";
+include "PKGTOOL/pkgtool_base";
 open PkgTool;
 
 var libflx_factory : () -> libflx_interface;

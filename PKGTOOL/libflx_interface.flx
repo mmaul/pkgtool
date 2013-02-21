@@ -1,7 +1,7 @@
 union compiler_result_code_t[T] = 
   |OK of T
   |ERR of int*string;
-
+var init_libflx_factory = true;
 interface libflx_interface {
   get_version:1->string;
   set_echo:bool->0;
