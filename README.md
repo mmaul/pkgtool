@@ -71,7 +71,7 @@ Usage
 Scoop is the user interface to to distributed package management aspect of
 PkgTool.  
 
-### Scoop commands is presented below:
+### Scoop commands are presented below:
 
     scoop get     [package]  Pull package from litterbox to current working directory
     scoop list               Lists all packages on litterbox
@@ -83,19 +83,19 @@ PkgTool.
     scoop help               Displays this message
     scoop help    [command]  Displays detailed help for command
 
-Scoop commands can be followed by options
+### Scoop commands can be followed by options
 
-    --litterbox-url=<remote repository> | Remote repository  containing package README.md's
+    --litterbox-url=<remote repository>  Remote repository  containing package README.md's
 
-    --litterbox=<location> | location to create local package directory repo if HOME/.felix/litterbox is unacceptable
+    --litterbox=<location>               Location to create local package directory repo if HOME/.felix/litterbox is unacceptable
 
-    --degitify | Remove .git directory from downloaded packages
+    --degitify                           Remove .git directory from downloaded packages
     
     -L[C/C++ library paths]
 
     -I[C/C++ library paths]
 
-    --dry-run |
+    --dry-run                            Don't actuall install, but tell us where you would.
 
 
 
