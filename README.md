@@ -6,7 +6,7 @@ VERSION: .02
 
 AUTHOR:  Mike Maul
 
-PKG_URL = 'https://github.com/mmaul/pkgtool';
+PKG_URL: https://github.com/mmaul/pkgtool
 
 CATEGORY: UTIL
 
@@ -67,11 +67,11 @@ created the need for thir distinction.
 
 Usage
 =====
-## scoop - package manager## 
+## scoop - package manager 
 Scoop is the user interface to to distributed package management aspect of
 PkgTool.  
 
-Scoop commands is presented below:
+### Scoop commands is presented below:
 
     scoop get     [package]  Pull package from litterbox to current working directory
     scoop list               Lists all packages on litterbox
