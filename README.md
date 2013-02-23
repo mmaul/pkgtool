@@ -125,9 +125,11 @@ SetupTool it PkgTool's solution to this. SetupTool is presented to the user as a
 ''setup.flx'' located in the top level of the package directory. This is used to instantiate the build system and
 allow for user customizations to the build system. If you are note deviating from the standard behaviors your
 setup.flx file can be quite small. Below is a minimum setup.flx
+
     include "PKGTOOL/pkgtool";
     BUILD_LIKE = App;
     SetupTool::run();
+    
 That is all you need to build a Felix Application with Setup tool. What does that actually do for you?
 Profiding you are conforming to the App directory structure for your project it wil:
 * Compile all felix source in the bin directory to a static binary executable
