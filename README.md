@@ -16,7 +16,7 @@ LIBDIR: PKGTOOL
 PKGTOOL is what happens when a build system, a package manager and a test 
 framework meet up at a bar and have a few too many drinks. Seriously though
 pkgtool is a underlying framwork that contains the common aspects of the
-different facets. As an aside a compiler frontent happend by at the bar 
+different facets. As an aside the flx compiler frontend happend by at the bar 
 towards the end and got in on the fun.
 
 Specialization of the facets is presented to the user at the interface level.
@@ -59,14 +59,11 @@ structure dependant on their function. There are three types of packages:
 * Web Applications
 
 Each of the different package types exhibit certain common preferences that 
-created the need for the distinction of package types.
+created the need for thir distinction.
 
 * Applications have a need for one or more user executables
 * Libraries hae a need to present one or more API interfaces
 * Web Applications have a need to present one executable along with associated content
-
-
-
 
 Usage
 =====
@@ -74,16 +71,30 @@ Usage
 Scoop is the user interface to to distributed package management aspect of
 PkgTool.  
 
+Scoop commands is presented below:
+    scoop get     [package]  Pull package from litterbox to current working directory
+    scoop list               Lists all packages on litterbox
+    scoop search  [package]  Searches for package on litterbox
+    scoop info    [package]  Displays package info
+    scoop install [package]  Pull, builds and install package
+    scoop force   [package]  Pull, builds and install skipping tests phase
+    scoop refresh            Refreshes litterbox package directory cache
+    scoop help               Displays this message
+    scoop help    [command]  Displays detailed help for command
 
-  scoop get     [package]  Pull package from litterbox to current working directory
-  scoop list               Lists all packages on litterbox
-  scoop search  [package]  Searches for package on litterbox
-  scoop info    [package]  Displays package info
-  scoop install [package]  Pull, builds and install package
-  scoop force   [package]  Pull, builds and install skipping tests phase
-  scoop refresh            Refreshes litterbox package directory cache
-  scoop help               Displays this message
-  scoop help    [command]  Displays detailed help for command
+Scoop commands can be followed by options
+
+    --litterbox-url=<remote repository> | Remote repository  containing package README.md's
+
+    --litterbox=<location> | location to create local package directory repo if HOME/.felix/litterbox is unacceptable
+
+    --degitify | Remove .git directory from downloaded packages
+    
+    -L[C/C++ library paths]
+
+    -I[C/C++ library paths]
+
+    --dry-run |
 
 
 
