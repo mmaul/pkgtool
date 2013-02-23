@@ -2,7 +2,7 @@ NAME: pkgtool
 
 DESCRIPTION: Packaging Management Tool
 
-VERSION: .01
+VERSION: .02
 
 AUTHOR:  Mike Maul
 
@@ -10,18 +10,82 @@ PKG_URL = 'https://github.com/mmaul/pkgtool';
 
 CATEGORY: UTIL
 
-LIBDIR: XPKGTOOL
+LIBDIR: PKGTOOL
 -----
 
+PKGTOOL is what happens when a build system, a package manager and a test 
+framework meet up at a bar and have a few too many drinks. Seriously though
+pkgtool is a underlying framwork that contains the common aspects of the
+different facets. As an aside a compiler frontent happend by at the bar 
+towards the end and got in on the fun.
 
-pkgtool
+Specialization of the facets is presented to the user at the interface level.
+Two user interfaces exist, the package manager ''scoop'' and the build framework 
+SetupTool. The package manager ''scoop'' exists as an independant executable 
+while SetupTool exists as a user implementable framework for package build 
+management.
+
+Features
 =======
-
-Felix Package and Build Automation provides:
 
 * Package build framework
 * Package test framework
 * Package installation framework
-* Remote package repository access
+* Distributed remote package repository framework
+* Distributed package management application
+* Centeralized package directory
+* Programatic frendly inter face to the flx compiler frontend.
 
-Felix package tool preovides for automation
+Installation
+============
+
+Installation is simple because PkgTool uses pkgtool for build and installation.
+All that is needed is:
+
+    flx setup install
+
+This will build the PkgTool executables and install the executables and library
+components in in the Felix INSTALL_ROOT directory. The scoop executable is also
+installed in the /usr/local/bin directory by default.  You will need sufficient access priviledges to write to INSTALL_ROOT and /usr/local/bin.
+when runing this.
+
+Packages
+========
+Packages exist as independant remote git repositories which conform to certain 
+structure dependant on their function. There are three types of packages:
+
+* Applications
+* Libraries
+* Web Applications
+
+Each of the different package types exhibit certain common preferences that 
+created the need for the distinction of package types.
+
+* Applications have a need for one or more user executables
+* Libraries hae a need to present one or more API interfaces
+* Web Applications have a need to present one executable along with associated content
+
+
+
+
+Usage
+=====
+## scoop - package manager## 
+Scoop is the user interface to to distributed package management aspect of
+PkgTool.  
+
+
+  scoop get     [package]  Pull package from litterbox to current working directory
+  scoop list               Lists all packages on litterbox
+  scoop search  [package]  Searches for package on litterbox
+  scoop info    [package]  Displays package info
+  scoop install [package]  Pull, builds and install package
+  scoop force   [package]  Pull, builds and install skipping tests phase
+  scoop refresh            Refreshes litterbox package directory cache
+  scoop help               Displays this message
+  scoop help    [command]  Displays detailed help for command
+
+
+
+
+

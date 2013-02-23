@@ -18,12 +18,17 @@ done
 
 var FELIX_HOME = HOME.join(".felix");
 
-var LITTERBOX = FELIX_HOME.join("litterbox");
+var LITTERBOX = if Env::getenv("LITTERBOX") == "" then 
+  FELIX_HOME.join("litterbox")
+  else Env::getenv("LITTERBOX") endif;
 
-var LITTERBOX_URL = 'https://github.com/mmaul/litterbox.git';
+var LITTERBOX_URL = if Env::getenv("LITTERBOX_URL") == "" then
+  'https://github.com/mmaul/litterbox.git'
+  else Env::getenv("LITTERBOX_URL") endif;
+
+var DEGITIFY = false;
 
 proc get_pkg (pkg:string,dest:string) {
-  //repo_url:string,dest:string
   cfg = read_cfg((LITTERBOX.join(pkg)).join("README.md"));
   match get cfg 'PKG_URL' with
   |Some ?pkg_url => { git_get(pkg_url,dest); }
@@ -56,7 +61,7 @@ proc search (opts:list[string]) () {
    
    match Directory::filesin(LITTERBOX) with
    |Some ?files => { 
-     for file in filter (fun (f:string) => not f == "build" and not f.startswith ".") files do
+     for file in sort(filter (fun (f:string) => not f == "build" and not f.startswith ".") files) do
        var dir_path = LITTERBOX.join(file);
         match filetype(dir_path) with
        |DIRECTORY => {
@@ -64,11 +69,11 @@ proc search (opts:list[string]) () {
         match filetype(pkg_readme) with
         |REGULAR => { 
           var pkg = read_cfg(pkg_readme);
-          for itm in search do
+          for itm in sort(search) do
             match get pkg (toupper(itm.0)) with
             |Some ?pkg_v => { 
               match find((toupper(pkg_v)), (toupper(itm.1))) with
-              |Some _ => { task(((get pkg "NAME").or_else "UNKNOWN") + " " ((get pkg "DESCRIPTION").or_else ""));
+              |Some _ => { task(((get pkg "NAME").or_else "UNKNOWN") + " ::  " ((get pkg "DESCRIPTION").or_else ""));
                            goto enough; }
               |_ => {}
               endmatch;
@@ -122,6 +127,7 @@ scoop: A distributed package manager for Felix
   scoop search  [package]  Searches for package on litterbox
   scoop info    [package]  Displays package info
   scoop install [package]  Pull, builds and install package
+  scoop force   [package]  Pull, builds and install skipping tests phase
   scoop refresh            Refreshes litterbox package directory cache
   scoop help               Displays this message
   scoop help    [command]  Displays detailed help for command
@@ -210,15 +216,48 @@ proc invalid_cmd(cmd:string) {
       help();  
 }
 
+gen handle_local_options(optt:int*list[string]) = {
+  var valid_opts = 0;
+  var unused_opts = Empty[string];
+  match optt with
+  |?v,?opts => {
+    for arg in opts do
+      match arg with
+      |?option when option.startswith "--litterbox-url=" => {
+        LITTERBOX_URL = arg.[16 to];
+        valid_opts++;
+      }
+      |?option when option.startswith "--litterbox=" => {
+        LITTERBOX = arg.[12 to];
+        valid_opts++;
+      }
+      |?option when option.startswith "--degitify" => {
+        DEGITIFY = false;
+        valid_opts++;
+      }
+      |?option => { unused_opts += option; }
+      endmatch;
+    done
+  }
+  endmatch;
+  return (valid_opts,unused_opts);
+}
+
 proc install(cmd:string,options:list[string]) {
   banner("Installing package");
   match options with
-  |Cons (?pkg,Empty[string]) => {
+  |Cons (?pkg,?opts) => {
+    var extra_opts = "";
+    if not DEST_DIR == "" do extra_opts += " --dest-dir=" + DEST_DIR + " "; done
+    if not EXTRA_INCDIR == "" do extra_opts += " -I" + EXTRA_INCDIR + " "; done
+    if not EXTRA_LIBDIR == "" do extra_opts += " -L" + EXTRA_LIBDIR + " "; done
+    if DRY_RUN  do extra_opts += " --dry-run "; done
     val pkg_dir = (LITTERBOX.join("build")).join(pkg);
     phase(q"Scooping package $(pkg) from litterbox.",
       proc () { get_pkg(pkg,pkg_dir); });
     val result = System::system("flx --noinline " +
-      pkg_dir.join("setup")+" " + cmd + " --build-dir=" + pkg_dir);
+      pkg_dir.join("setup")+" " + cmd + " --build-dir=" + pkg_dir +
+      extra_opts);
     if result != 0 do  
       warning("Installation failed");
     else
@@ -244,20 +283,29 @@ proc install(cmd:string,options:list[string]) {
 
 proc run() {
     banner("Felix package manager");
+    var args = tail(System::args());
+    C_hack::ignore(handle_local_options$ handle_global_options(args));
     match filetype(LITTERBOX) with
     |NONEXISTANT => { phase("Initializing package repository",refresh);}
     |DIRECTORY => { }
     |_ => { setup_fail("Error creating:"+LITTERBOX + ", try removing if it exists or checking permissions"); }
     endmatch;
+    refresh();
     var opts = Empty[string];
     var valid_opts = 0;
-    match tail(System::args()) with
+    match args with
     |Cons (?command,?options) => {
         match command with
         |?cmd when cmd == "get" => { 
              match options with
-             |Cons (?pkg,Empty[string]) => {
-                phase(q"Scooping package $(pkg) from litterbox.",proc () { get_pkg(pkg, pkg); });
+             |Cons (?pkg,?as) => {
+                var pkg_dir = 
+                  match head(as) with |Some ?dir => dir |_ => pkg endmatch;
+                phase(q"Scooping package $(pkg) from litterbox.",
+                  proc () { 
+		    get_pkg(pkg,pkg_dir); 
+		    });
+                    if DEGITIFY do degitify(pkg_dir); done
              }
              |_ => {
                setup_fail("No package specified");
@@ -292,8 +340,6 @@ proc run() {
     }
     |_ => { invalid_cmd("?"); }
     endmatch;
-
-
 }
 
 run();

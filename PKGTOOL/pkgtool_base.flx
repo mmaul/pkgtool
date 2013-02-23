@@ -5,8 +5,37 @@ open FileStat;
 open Output_text_file[ofile];
 open Input_text_file[ifile];
 open Process;
+
+union build_behavior = 
+| App
+| Lib
+| WebApp;
+
+instance Eq[build_behavior]  {
+  fun == : build_behavior * build_behavior -> bool = "$1==$2";
+}
+open Eq[build_behavior];
+// Globals parameters
+var BUILD_LIKE = Lib;
+var config = #Config::config;
+var INSTALL_ROOT_TOPDIR=config.INSTALL_ROOT_TOPDIR;
+var INSTALL_ROOT=config.INSTALL_ROOT;
+var FLX_INSTALL_DIR=config.FLX_INSTALL_DIR;
+val NL = "\n";
+if PLAT_WIN32 do
+  NL = "\r"+NL;
+done
+var LINELEN = 64;
+var FLX_OPTS = "";
+var INDENT = "  ";
+var build_tasks = Empty[string*uint->void];
+var TEST_LOG = "setup.log";
+var SETUP_LOG = "setup.log";
+
+
 // Package parameters
 var cfg = strdict[string](); 
+  // var names below should be keys in cfg strdict
 var NAME = '';
 var VERSION = '';
 var AUTHOR = '';
@@ -21,24 +50,15 @@ var REQUIRES = Empty[string];
 var TEST_REQUIRES = Empty[string];
 var CATEGORY = Empty[string];
 var LICENSE = "";
-//var PLATFORMS = list(PLAT_WIN32); 
-var config = #Config::config;
-var INSTALL_ROOT_TOPDIR=config.INSTALL_ROOT_TOPDIR;
-var INSTALL_ROOT=config.INSTALL_ROOT;
-var FLX_INSTALL_DIR=config.FLX_INSTALL_DIR;
-var EXTRA_LIBDIR = "";
-var EXTRA_INCDIR = "";
-val NL = "\n";
-if PLAT_WIN32 do
-  NL = "\r"+NL;
-done
-var LINELEN = 64;
-var FLX_OPTS = "";
-var INDENT = "  ";
-var build_tasks = Empty[string*uint->void];
-var TEST_LOG = "setup.log";
-var SETUP_LOG = "setup.log";
-var BUILD_DIR = ".";
+var PLATFORMS = Empty[string];
+
+// Options populated from command line
+var BUILD_DIR = ".";        //--build-dir=[SOMETHING]
+var DEST_DIR = INSTALL_ROOT; //--dest-dir=[SOMETHING]
+var DRY_RUN = false;        //--dry-run
+var EXTRA_LIBDIR = "";      // -L[SOMETHING]
+var EXTRA_INCDIR = "";      // -I[SOMETHING]
+var PREFIX = "/usr/local";
 
 class PkgTool {
   // GLobal parameters
@@ -238,16 +258,17 @@ class PkgTool {
   }
 
   proc cp_root(s:string,p:string,dest:string) {
+      var flags = if DRY_RUN then " --verbose --test " else "" endif;
       val cmd = 
-        (FLX_INSTALL_DIR.join("bin")).join("flx_cp") //+ " --verbose " +
+        (FLX_INSTALL_DIR.join("bin")).join("flx_cp") + flags +
         " '" + s + "' " + quote(p) + " '" + dest.join("${0}") +
         "'";
       log(cmd);
      //var out = run_cmd(cmd,q"Error copying $(s)");
      //var err = match find(out,"Error") with |None => false |_ => true endmatch;
-      val result=System::system(cmd);
+      val result=System::system(cmd >> SETUP_LOG);
       if result != 0 /*or err*/ do 
-         setup_fail((q"Error copying $(s) to ") + (INSTALL_ROOT.join(s)));
+         setup_fail((q"Error copying $(s) to ") + (dest.join(s)));
       done
     }
 
@@ -256,11 +277,11 @@ class PkgTool {
     if pkgconfig_path == "" do
       red("Add the environmental variable below to your environment:");endl;
       if PLAT_WIN32 do
-        NC(INDENT+"set PKG_CONFIG_PATH=.\\config");endl;
+        NC(INDENT+"set PKG_CONFIG_PATH=.\\config");endl;endl;
       else
-        NC(INDENT+"PKG_CONFIG_PATH=./config; export PKG_CONFIG_PATH");endl;
+        NC(INDENT+"PKG_CONFIG_PATH=./config; export PKG_CONFIG_PATH");endl;endl;
       done
-      System::exit(0);
+      System::exit(-1);
     done
   }
 
@@ -301,7 +322,65 @@ class PkgTool {
     endif;
 
   proc default_build() {
-    
+    var file="";
+    var build_dirs = Empty[string];
+    if BUILD_LIKE == App or BUILD_LIKE == Lib do
+      match Directory::filesin(BUILD_DIR.join("bin")) with
+      |Some ?files => { 
+        for file in files do
+          if not (file.startswith ".") and (file.endswith ".flx") do
+            var flx_cmd = redir_err(((FLX_INSTALL_DIR.join("bin")).join("flx ") +
+              " -c --static "+ FLX_OPTS + (BUILD_DIR.join("bin")).join(file)),
+              SETUP_LOG);
+
+            if PLAT_WIN32 do
+              // Commented out to silence unreachable code warning
+              //var run_build_bat = fopen_output(BUILD_DIR.join("RUN_BUILD.BAT"));
+              //write(run_build_bat,"SET PKG_CONFIG_PATH="+BUILD_DIR.join("config") +
+              //  "\r\n");
+              //write(run_build_bat,flx_cmd+"\r\n");
+              //fclose(run_build_bat);
+              //flx_cmd = BUILD_DIR.join("RUN_BUILD.BAT");
+            else
+              flx_cmd = "cd "+BUILD_DIR+";export PKG_CONFIG_PATH="+BUILD_DIR+
+                "/config;" + flx_cmd;
+            done
+            task("Building "+file); 
+            log(INDENT+cyan_(flx_cmd)+NL);
+            //XOXO //display$ run_cmd(flx_cmd,"");
+            val result = System::system(flx_cmd);
+            if result != 0 do  
+              setup_fail(q"Error running test: $(file)");
+            done
+          done
+        done
+      }
+      |_ => { }
+      endmatch;
+    done    
+    if BUILD_LIKE == WebApp do
+      var flx_cmd = redir_err(((FLX_INSTALL_DIR.join("bin")).join("flx ") +
+        " -c --static "+ FLX_OPTS + (BUILD_DIR.join("app")).join(NAME)),
+        SETUP_LOG);
+      if PLAT_WIN32 do
+        // Commented out to silence unreachable code warning
+        //var run_build_bat = fopen_output(BUILD_DIR.join("RUN_BUILD.BAT"));
+        //write(run_build_bat,"SET PKG_CONFIG_PATH="+BUILD_DIR.join("config") +
+        //  "\r\n");
+        //write(run_build_bat,flx_cmd+"\r\n");
+        //fclose(run_build_bat);
+        //flx_cmd = BUILD_DIR.join("RUN_BUILD.BAT");
+      else
+        flx_cmd = "cd "+BUILD_DIR+";export PKG_CONFIG_PATH="+BUILD_DIR+
+          "/config;" + flx_cmd;
+      done
+      task("Building "+file); 
+      log(INDENT+cyan_(flx_cmd)+NL);
+      val result = System::system(flx_cmd);
+      if result != 0 do  
+        setup_fail(q"Error building: $(NAME)");
+      done
+    done
   }
 
   virtual proc build() {
@@ -320,7 +399,6 @@ class PkgTool {
     else
       flx_cmd = "cd "+BUILD_DIR+";export PKG_CONFIG_PATH="+BUILD_DIR+"/config;" + flx_cmd;
     done
-//println $flx_cmd;
     if not noheader do test_case(name); done
     log(INDENT+cyan_(flx_cmd)+NL);
     display$ run_cmd(flx_cmd,"");
@@ -338,6 +416,11 @@ class PkgTool {
     fun WIFEXITED(x:process_status_t) => true;
     fun WEXITSTATUS(x:process_status_t) => 0;
   done
+  
+  fun run_cmd(cmd:string) = {
+    return run_cmd(cmd,"");
+  }
+
   fun run_cmd (cmd:string,on_error:string) = {
     return run_cmd(cmd,on_error,false);
   }
@@ -377,7 +460,7 @@ class PkgTool {
   proc default_test() {
     var file="";
     match Directory::filesin(BUILD_DIR.join("test")) with
-    |Some ?files => { for file in files do
+    |Some ?files => { for file in sort(files) do
                        if not (file.startswith ".") and (file.endswith ".flx") 
                           and not (file.startswith "C") and 
                           not (file.startswith "D") do
@@ -392,27 +475,36 @@ class PkgTool {
   virtual proc test() {
     default_test();
   }
-//'examples[/\\].(.*\.flx)'
 
   proc default_install() {
-    task("Installing Library files");
-    cp_root(BUILD_DIR, LIBDIR+"[/\\\].(.*\.flx)",INSTALL_ROOT.join("lib"));
+    if BUILD_LIKE == App or BUILD_LIKE == Lib do
+      task("Installing bin files");
+      cp_root(BUILD_DIR, "bin[/\\][^.][a-zA-Z0-9_-]+$",DEST_DIR);
+      if PLAT_WIN32 do
+        match filetype(PREFIX) with
+        |DIRECTORY => {cp_root(BUILD_DIR, "bin[/\\][^.][a-zA-Z0-9_-]+$",PREFIX); }
+        |_ => {}
+        endmatch;
+      done
+    done
+    if BUILD_LIKE == Lib do
+      task("Installing Library files");
+      cp_root(BUILD_DIR, LIBDIR+"[/\\\].(.*\.flx)",DEST_DIR.join("lib"));
+    done
+    if BUILD_LIKE == WebApp do
+      task("Installing package app files");
+      cp_root(BUILD_DIR, "app[/\\\].(.*\.flx)$",DEST_DIR);
+      task("Installing package html files");
+      cp_root(BUILD_DIR, "html[/\\\]..*",DEST_DIR);
+      cp_root(BUILD_DIR, "html[/\\\]css[/\\\]..*",DEST_DIR);
+      cp_root(BUILD_DIR, "html[/\\\]js[/\\\]..*",DEST_DIR);
+      cp_root(BUILD_DIR, "html[/\\\]images[/\\\]..*",DEST_DIR);
+    done
     task("Installing package config files");
-    cp_root(BUILD_DIR, "config[/\\\].(.*\.fpc)");
+    cp_root(BUILD_DIR, "config[/\\\].(.*\.fpc)$",DEST_DIR);
     task("Installing package documentation and examples");
-    cp_root(BUILD_DIR, "README.md",((INSTALL_ROOT.join("web")).join("packages")).join(NAME));
-    cp_root(BUILD_DIR, "examples[/\\\].(.*\.flx)",((INSTALL_ROOT.join("web")).join("packages")).join(NAME));
-  }
-
-
-  proc default_install__() {
-    task("Installing Library files");
-    cp_root(BUILD_DIR.join(LIBDIR), ".*.flx","lib");
-    task("Installing package config files");
-    cp_root(BUILD_DIR.join("config"), ".*.fpc");
-    task("Installing package documentation and examples");
-    cp_root(BUILD_DIR, "README.md",("web".join("packages")).join(NAME));
-    cp_root(BUILD_DIR.join("examples"), ".*.flx",("web".join("packages")).join(NAME));
+    cp_root(BUILD_DIR, "README.md",((DEST_DIR.join("web")).join("packages")).join(NAME));
+    cp_root(BUILD_DIR, "examples[/\\\].(.*\.flx)",((DEST_DIR.join("web")).join("packages")).join(NAME));
   }
 
   virtual proc install() {
@@ -420,7 +512,7 @@ class PkgTool {
   }
 
   proc default_clean() {
-   for dir in list("test",LIBDIR,"bin") do
+   for dir in list("test",LIBDIR,"bin","app") do
       var dir_path = BUILD_DIR.join(dir);
       match filetype(dir_path) with
       |DIRECTORY => {
@@ -429,7 +521,12 @@ class PkgTool {
         |Some ?files => { 
           for file in files do
                        if not (file.startswith ".") and 
-                          (file.endswith #Config::config.EXT_SHLIB) do
+                          ((file.endswith #Config::config.EXT_SHLIB) 
+                           and (not (file.endswith ".flx"))
+                           and (not (file.endswith ".fdoc"))
+                           and (not (file.endswith ".md")))
+
+                          do
 //                          C_hack::ignore(FileSystem::unlink_file(dir_path.join(file)));
                           assert_true(FileSystem::unlink_file(dir_path.join(file)) == 0,
                             "Deleting " + file);
@@ -459,6 +556,7 @@ Common commands: (see '--help-commands' for more)
   setup.flx force          performs config, build and install tasks
   setup.flx info           will display package information
   setup.flx clean          will delete generated files
+  setup.flx degitify       removes git info from package dir
   setup.flx help [command] will display detailed help for command
 Global options:
   --help (-h)         show detailed help message
@@ -546,6 +644,11 @@ Command options are:
 Description: Removes generated files.
 """;
       }
+    |Cons (?cmd,_) when cmd == 'degitify'    => {
+      println$ """
+Description: Removes git repo information from package dir. Usfull if you want to place package in to your own git repo. Howeer it would be most commonly used with the 'blank' project template.
+""";
+      }
     |?cmd                       => {
       invalid_cmd(join(cmd));
     }
@@ -578,8 +681,9 @@ Description: Removes generated files.
     endmatch;
     }
     |NONEXISTANT => { 
-      task$ run_cmd(q"git clone $(url) $(dest)",
-        "Error cloning package."); 
+      var cmd = "git clone "+url+" "+dest;
+      var cmd_out = run_cmd(cmd,"Error cloning package.");
+      task(cmd_out);
     }
     |NOPERMISSION => { setup_fail$ "Unable to pull repository because you do not have permission to access $(dest).";}
     |REGULAR => { setup_fail$ "Unable to pull repository because a file exists having the same name as $(dest). Move the file to fix this.";}
@@ -587,9 +691,40 @@ Description: Removes generated files.
     endmatch;
   }
 
-virtual proc run() {
+  virtual proc run() {
 
-}
+  }
+
+  gen handle_global_options(options:list[string]) = {
+    var valid_opts = 0;
+    var opts = Empty[string];
+    for arg in options do
+      match arg with
+      |?option when option.startswith "-L" => { valid_opts++; EXTRA_LIBDIR += " " + arg; }
+      |?option when option.startswith "-I" => { valid_opts++; EXTRA_INCDIR += " " + arg; }
+      |?option when option.startswith "--build-dir=" => { valid_opts++; BUILD_DIR = arg.[12 to]; }
+      |?option when option == "--dry-run" => { valid_opts++; DRY_RUN = true; }
+      |?option when option.startswith "--dest-dir=" => { valid_opts++; DEST_DIR = arg.[11 to]; }
+      |?option when option.startswith "--prefix=" => { valid_opts++; PREFIX = arg.[9 to]; }
+      |?option => { opts += option; }
+      endmatch;
+    done
+    return (valid_opts,opts);
+  }
+
+  proc degitify() {
+    degitify(BUILD_DIR);
+  }
+
+  proc degitify(dir:string) {
+      var pkg_git = dir.join(".git");
+      task$ "Degitifying:" + pkg_git;
+      var result_code = if PLAT_WIN32 then
+        System::system("rd /S /Q " + pkg_git)
+      else
+        System::system("rm -rf " + pkg_git)
+      endif;
+  }
 
 }
 
@@ -598,21 +733,14 @@ open PkgTool;
 
   //$ Executes package phases 
   proc run() {
-    check_pkgconfig_path();
+    //check_pkgconfig_path();
     // Read config
     var cfg:strdict[string];
     var opts = Empty[string];
     var valid_opts = 0;
     match tail(System::args()) with
     |Cons (?command,?options) => {
-      for arg in options do
-        match arg with
-        |?option when option.startswith "-L" => { valid_opts++; EXTRA_LIBDIR += " " + arg; }
-        |?option when option.startswith "-I" => { valid_opts++; EXTRA_INCDIR += " " + arg; }
-        |?option when option.startswith "--build-dir=" => {valid_opts++; BUILD_DIR = arg.[12 to]; }
-        |?option => { opts += option; }
-        endmatch;
-      done 
+    valid_opts,opts = handle_global_options(options); 
     SETUP_LOG = if (SETUP_LOG == "") then SETUP_LOG else 
                   BUILD_DIR.join(SETUP_LOG) endif;
     TEST_LOG = if (TEST_LOG == "") then TEST_LOG else 
@@ -659,6 +787,10 @@ open PkgTool;
           phase("Test",test);
           phase("Install",install);
           phase("Clean",clean);
+          if DRY_RUN do
+            phase("Dry Run");
+            task("See '"+SETUP_LOG+"' for results.");
+          done
         done
         }
       |?cmd when cmd == "force" => {
@@ -669,6 +801,25 @@ open PkgTool;
           phase("Build",build);
           phase("Install",install);
           phase("Clean",clean);
+          if DRY_RUN do
+            phase("Dry Run");
+            task("See '"+SETUP_LOG+"' for results.");
+          done
+        done
+        }
+       |?cmd when cmd == "dist" => { 
+        if (len(options) - valid_opts) > size(0) do
+          invalid_opts(options,command);
+        else
+          banner(q"Creating distribution $(NAME)");
+          phase("Build",build);
+          phase("Test",test);
+          DEST_DIR = BUILD_DIR.join("dist");
+          phase("Install",install);
+          if DRY_RUN do
+            phase("Dry Run");
+            task("See '"+SETUP_LOG+"' for results.");
+          done
         done
         }
         |?cmd when cmd == "clean" => { 
@@ -690,7 +841,14 @@ open PkgTool;
         task(q"URL: $(URL)");
         task(q"Description: $(DESCRIPTION)");
         display$ LONG_DESCRIPTION;
-        } 
+        }
+      |?cmd when cmd == "degitify" => { 
+        if (len(options) - valid_opts) > size(0) do
+          invalid_opts(options,command);
+        else
+          degitify();
+        done
+      } 
       |?cmd => { invalid_cmd(cmd); }
       endmatch; 
       }

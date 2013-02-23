@@ -1,7 +1,7 @@
 include "PKGTOOL/pkgtool";
 include "PKGTOOL/pkgtool_base";
 // Package parameters
-NAME = 'libflx';
+NAME = 'pkgtool';
 VERSION = '.01';
 AUTHOR = 'Mike Maul';
 AUTHOR_URL="";
@@ -19,7 +19,7 @@ instance PkgTool {
   proc build () {
     task("Building libflx plugin");
     log(run_cmd("flx -c PKGTOOL/libflx.flx","Error building libflx plugin."));
-    //run_test("C01-fltk.flx",true);
+    default_build();
   }
 
 }
