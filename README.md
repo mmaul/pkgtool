@@ -87,7 +87,8 @@ PkgTool.
 
     --litterbox-url=<remote repository>  Remote repository  containing package README.md's
 
-    --litterbox=<location>               Location to create local package directory repo if HOME/.felix/litterbox is unacceptable
+    --litterbox=<location>               Location to create local package directory 
+                                         repo if HOME/.felix/litterbox is unacceptable
 
     --degitify                           Remove .git directory from downloaded packages
     
@@ -95,7 +96,7 @@ PkgTool.
 
     -I[C/C++ library paths]
 
-    --dry-run                            Don't actuall install, but tell us where you would.
+    --dry-run                             Don't actuall install, but tell us where you would.
 
 
 
