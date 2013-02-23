@@ -72,6 +72,7 @@ Scoop is the user interface to to distributed package management aspect of
 PkgTool.  
 
 Scoop commands is presented below:
+
     scoop get     [package]  Pull package from litterbox to current working directory
     scoop list               Lists all packages on litterbox
     scoop search  [package]  Searches for package on litterbox
