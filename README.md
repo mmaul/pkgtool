@@ -74,11 +74,10 @@ with few clicks. The other nice thing is there is no seperate package meta-data.
 contained at the top of the package README.md. In fact you can see the package metadata for PkgTool simply by 
 looking at the top of this file.
 
-Usage
+scoop - package manager
 =====
-## scoop - package manager 
-Scoop is the user interface to to distributed package management aspect of
-PkgTool.  
+Scoop is the user interface to to distributed package management aspect ofPkgTool. Scoop allows you to view the
+contents of the litterbox package index, get and install packages from remote git repositories.
 
 ### Scoop commands are presented below:
 
@@ -112,3 +111,51 @@ PkgTool.
     LITTERBOX= Location to create local package directory repo if HOME/.felix/litterbox is unacceptable
     LITTERBOX_URL=  Remote package directory
 
+
+SetupTool - Build and Testing Framework
+=======================================
+So one can write programs with out build and test frameworks just fine. But if you want to share your software
+with others it really helps to have a build and test framework. If there is something wrong you can fix it, if you
+need to move an executable to some location or other you can do it. Once your code has gone out into the world
+you can't. That is why a test framework can shake out problems that might surface after release. A build frame
+work while it does make it easier to automate your builds, makes it easier for other people to build your code, or 
+easier for you to assemble binary or source distributions.
+
+SetupTool it PkgTool's solution to this. SetupTool is presented to the user as a Felix source file called 
+''setup.flx'' located in the top level of the package directory. This is used to instantiate the build system and
+allow for user customizations to the build system. If you are note deviating from the standard behaviors your
+setup.flx file can be quite small. Below is a minimum setup.flx
+  include "PKGTOOL/pkgtool";
+  BUILD_LIKE = App;
+  SetupTool::run();
+That is all you need to build a Felix Application with Setup tool. What does that actually do for you?
+Profiding you are conforming to the App directory structure for your project it wil:
+* Compile all felix source in the bin directory to a static binary executable
+* Execute tests source located in the test directory report the results and stop the build on errors.
+* Allow you to install your application to the file system 
+* Allow you to create a binary distribution
+
+
+
+### SetupTool commands are presented below:
+
+    flx setup build    [options]      performs config and build tasks
+    flx setup test     [options]      performs config, build and test tasks
+    flx setup install  [options]      performs config, build, test and install tasks
+    flx setup dist     [options]      performs config, build, test and install to the dist directory
+    flx setup force    [options]      performs config, build and install tasks
+    flx setup info     [options]      will display package information
+    flx setup clean    [options]      will delete generated files
+    flx setup degitify [options]      removes git info from package dir
+    flx setup help     [command]      will display detailed help for command
+
+### Scoop commands can be followed by options
+    --degitify                           Remove .git directory from downloaded packages
+    
+    --force                              Proceed with installation even if tests fail
+    
+    -L[C/C++ library paths]              Supply additional C/C++ include paths
+
+    -I[C/C++ library paths]              Supply sdditional C/C++ library paths
+
+    --dry-run                             Don't actuall install, but tell us where you would.
