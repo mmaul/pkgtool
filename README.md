@@ -46,8 +46,8 @@ All that is needed is:
 
 This will build the PkgTool executables and install the executables and library
 components in in the Felix INSTALL_ROOT directory. The scoop executable is also
-installed in the /usr/local/bin directory by default.  You will need sufficient access priviledges to write to INSTALL_ROOT and /usr/local/bin.
-when runing this.
+installed in the /usr/local/bin directory by default.  You will need sufficient 
+access priviledges to write to INSTALL_ROOT and /usr/local/bin. when runing this.
 
 Package Management
 ==================
@@ -66,7 +66,14 @@ created the need for thir distinction.
 * Web Applications have a need to present one executable along with associated content
 
 Independant package repositories are usless if you don't know where they are, and even if you do
-it's inconvient. Which is why the ''litterbox'' central package index.
+it's inconvient. Which is why the ''litterbox'' central package index exists. Litterbox contains 
+the package README.md in side a directory for each package. Litterbox is self is housed is a remote 
+git repository on github.com. One particularly nice feature is the packages are easly browsable simple
+by going to the the litterbox repositirey with a web browser and being able to access the package README.md's
+with few clicks. The other nice thing is there is no seperate package meta-data. THe package meta-data is 
+contained at the top of the package README.md. In fact you can see the package metadata for PkgTool simply by 
+looking at the top of this file.
+
 Usage
 =====
 ## scoop - package manager 
