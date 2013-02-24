@@ -167,9 +167,8 @@ a bin directory inside the dist folder.
 
 ###  App Package Directory Structure
     README.md - Package metadata and documentation
-    <app>        
-       Application support code (Directory name is usualy same as package name) and mostdefinately
-       should be what the LIBDIR parameter is set to
+    app        
+       Application support code 
     bin
        Executables related to library
     config
@@ -219,17 +218,16 @@ INSTALL_ROOT directory.
        Test code
 ### WebApp Package Default Behavior 
 #### Build Phase
-The file matching the NAME parameter in the app directory is compiled as a static executable
-the bin directory
+The file matching the NAME parameter in the app directory is compiled as a static executable app directory
 #### Test Phase
 The flx files in the test directory except those starting with a capital 'C' or 'D' are executed in the test context.
 Files starting with 'C' are reserved for configuration test scrips used in the Build Phase. Files starting with capital
 'D' are reserved for test datafiles.
 #### Install/Dist Phase
-Install phase will place binaries generated in bin directory in Felis INSTALL_ROOT/bin or if the --prefix=DIR switch was
-specified place the bin directory under the path specified in the --prefix option. The Dist variation of the Install
-Phase will create a dist folder inside the package dir and copy the executable files from the bin director into 
-a bin directory inside the dist folder.
+Install phase will the executable generated in app directory in directory specified in the DEST_DIR variable which
+should be set in the setup.flx file. The contents of the cfg and html directories are also copied to the directory
+specified in DEST_DIR.  The Dist variation of the Install will preform the same actions except copying to the dist
+directory.
 
 
 
@@ -255,3 +253,70 @@ a bin directory inside the dist folder.
     -I[C/C++ library paths]              Supply sdditional C/C++ library paths
 
     --dry-run                             Don't actuall install, but tell us where you would.
+
+## Customising the Phases
+Each phase can be customized to execute user supplied code by creatting instances of the procedures defined
+for each phase. They are as follows
+
+* Build - proc build: 1
+* Test - proc test: 1
+* Install - proc install: 1
+* Clean - proc clean: 1
+
+Below is an example of creating a build phase customization
+
+    instance PkgTool {
+      proc build () {
+        task("Custom build task for " + NAME);
+        default_build();
+      }
+    }
+
+Note the ''default_build()'' that invokes the default build phase behaior.
+
+## Writing Tests
+
+Below is an example of a test from the webapp-template package which illistrates a simple test
+
+    include "PKGTOOL/pkgtool";
+    include "web/http_request";
+    include "web/server_config";
+    include "web/http_handler";
+    include "app/hello";
+    open PkgTool;
+    open ServerConfig;
+    open HTTPRequest;
+    open HTTPHandler;
+    open Hello;
+    
+    var mock_server_config = basic_server_config(Empty[http_handler]);
+    var mock_request = http_request(GET ,"http://127.0.0.1:8080/hello","/hello",Empty[string^2],Empty[string^2],Empty[string^2]);
+    assert_true(hello_route(mock_server_config,mock_request),"Does /hello route?");
+    
+Notice the inclusion of the PkgTool library which is needed for access to the test framework aspect of PkgTool.
+The call to assert_true generates the test label and the value of the first parameter determine the test result.
+
+### Test Framework Interface
+The following signatures descript the interface to the test framework
+
+    proc imply(name:string)
+    
+The procure imply is a reachability test if the imply function is reached then it implies that the test is successful.
+
+    proc test_fail(s:string)
+The procedure test_fail is essentially the inverse of imply. If test_fail is reached then test fails.
+
+  proc assert_true(result:bool,name:string,fail_message:string)
+  proc assert_true(result:bool,name:string)
+  proc assert_true(result:bool)
+
+The assert true test use the result parameter to determing success or failure of the test. Additionally fail_message
+paramater can be used to display additional information regarding the failure.
+
+libflx the flx API interface
+============================
+
+
+  proc warning(s:string) {
+
+  
