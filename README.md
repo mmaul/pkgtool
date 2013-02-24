@@ -168,10 +168,10 @@ specified place the bin directory under the path specified in the --prefix optio
 Phase will create a dist folder inside the package dir and copy the executable files from the bin director into 
 a bin directory inside the dist folder.
 
-###  App Package Directory Structure
+###  Lib Package Directory Structure
     README.md - Package metadata and documentation
-    app        
-       Application support code 
+    <APP>        
+       Library code <APP> should match value of LIB_DIR parameter in package README.md  
     bin
        Executables related to library
     config
