@@ -191,9 +191,46 @@ Files starting with 'C' are reserved for configuration test scrips used in the B
 'D' are reserved for test datafiles.
 #### Install/Dist Phase
 Install phase will place binaries generated in bin directory in Felis INSTALL_ROOT/bin or if the --prefix=DIR switch was
-specified place the bin directory under the path specified in the --prefix option. Library The Dist variation of the Install
+specified place the bin directory under the path specified in the --prefix option. Library source code in the directory
+named in the LIBDIR parameter will be placed under the Felix INSTALL_ROOT/lib directory. Felix package config files 
+(fpc) in the config directory will be placed in the Felix INSTALL_ROOT/config directory. The Dist variation of the 
+Install Phase preforms similar operations however the dist directory will be the root as opposed to the Felix 
+INSTALL_ROOT directory.
+
+###  WebApp Package Directory Structure
+    README.md - Package metadata and documentation
+    app            
+       Web application code where the folder name will be the name set in the LIBDIR parameter 
+    config
+       Package config files
+       application config files
+    examples
+       Example code
+    html
+      css                   
+        stylesheets
+      images                
+        image content         
+      js            
+        javascript code
+    setup.flx - Build script
+    setup.log - Build log
+    test
+       Test code
+### WebApp Package Default Behavior 
+#### Build Phase
+The file matching the NAME parameter in the app directory is compiled as a static executable
+the bin directory
+#### Test Phase
+The flx files in the test directory except those starting with a capital 'C' or 'D' are executed in the test context.
+Files starting with 'C' are reserved for configuration test scrips used in the Build Phase. Files starting with capital
+'D' are reserved for test datafiles.
+#### Install/Dist Phase
+Install phase will place binaries generated in bin directory in Felis INSTALL_ROOT/bin or if the --prefix=DIR switch was
+specified place the bin directory under the path specified in the --prefix option. The Dist variation of the Install
 Phase will create a dist folder inside the package dir and copy the executable files from the bin director into 
 a bin directory inside the dist folder.
+
 
 
 ### SetupTool commands are presented below:
