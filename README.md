@@ -290,7 +290,8 @@ Below is an example of a test from the webapp-template package which illistrates
     open Hello;
     
     var mock_server_config = basic_server_config(Empty[http_handler]);
-    var mock_request = http_request(GET ,"http://127.0.0.1:8080/hello","/hello",Empty[string^2],Empty[string^2],Empty[string^2]);
+    var mock_request = http_request(GET ,"http://127.0.0.1:8080/hello","/hello",
+                                    Empty[string^2],Empty[string^2],Empty[string^2]);
     assert_true(hello_route(mock_server_config,mock_request),"Does /hello route?");
     
 Notice the inclusion of the PkgTool library which is needed for access to the test framework aspect of PkgTool.
@@ -304,19 +305,69 @@ The following signatures descript the interface to the test framework
 The procure imply is a reachability test if the imply function is reached then it implies that the test is successful.
 
     proc test_fail(s:string)
-The procedure test_fail is essentially the inverse of imply. If test_fail is reached then test fails.
+The procedure test_fail is essentially the inverse of imply. If test_fail is reached then test fails and halts
+the Test phase and any follow on phases.
 
-  proc assert_true(result:bool,name:string,fail_message:string)
-  proc assert_true(result:bool,name:string)
-  proc assert_true(result:bool)
+    proc assert_true(result:bool,name:string,fail_message:string)
+    proc assert_true(result:bool,name:string)
+    proc assert_true(result:bool)
 
 The assert true test use the result parameter to determing success or failure of the test. Additionally fail_message
 paramater can be used to display additional information regarding the failure.
 
+    proc warning(s:string)
+The procedure warning will display a warning message but allow the test to continue.
+
+### Handling of Test exit status codes
+By default if a test program exists with a non zero status code the entire test is a failure and execution of 
+the Test phase halts as well as any follow on phases
+
+## Logging
+
+All output presented to the console is also written to the file named in the variable SETUP_LOG. By default 
+the log file name is called 'setup_log'. Additionally logged output from the Test Phase can be seperated from the
+by setting the variable TEST_LOG to a desired file name. By default TEST_LOG is also set to 'setup.log'
+The contents of the log files are turnicated on each run of setup.flx.
+
 libflx the flx API interface
 ============================
+libflx is progrmattic interface to the functionality offered by the 'flx' executable. It is implemented as a
+Felix object and offered as a plugin. It was motivated by a sick to deathness of stringing together argument
+strings to call the 'flx' compiler. Unfortunately it came alittle late to the party so it is not currently
+used extensively in PkgTool, howeer in the future PkgTool may be refactored to use libflx inplace of shell
+calls to execute the 'flx' compiler frontend. It is available in the PkgTool through the run_flx procedure.
+libflx can be used outside of the Package tool frame work and would be quite useful for in an IDE.
+Good examples of usage of libflx can be found in the the PkgTool tests.
 
+Below is one such test
 
-  proc warning(s:string) {
+    include "PKGTOOL/libflx_factory";
+    include "PKGTOOL/pkgtool";
+    open PkgTool;
+    var myflx = libflx_factory();
+    myflx.set_dbug(false);
+    myflx.set_showcode(true);
+    myflx.set_snort(true);
+    match myflx.init_compiler() with
+    |OK[string] => {
+      imply("Compiler initialization");
+      match myflx.flx_compile("test/D01-libflx.flx") with
+      |OK[string] => {
+        imply("Compiliation of D01-libflx.flx");
+        match myflx.c_compile() with
+          |ERR[string] (?e,?m) => { test_fail("Returned with error code:"+e+":"+m); }
+          |OK[string] ?m => {
+          assert_true(m == "A\na\n", 
+            "Compiling D01-libflx.flx to shared object and running");
+        }
+        endmatch;
+      }
+      |ERR[string] (?e,?m) => { test_fail("Returned with error code:"+e+":"+m);}
+      endmatch;
+    }
+    |ERR[string] (?e,?m) => { test_fail("Returned with error code:"+e+":"+m); }
+    endmatch;
+    imply("Control returned to test harness");
+
 
   
