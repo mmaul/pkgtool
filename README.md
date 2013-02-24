@@ -373,4 +373,15 @@ Below is one such test:
     imply("Control returned to test harness");
 
 
-  
+PkgTool Caveats
+===============
+PkgTool has been coded to be cross platform. However it has not been verified on Windows, and there will have to
+be adjustments.
+
+PkgTool TODO
+============
+- [ ] Dependency mangement
+- [ ] Installed Package Tracking
+- [ ] Package uninstall
+- [ ] Use libflx for compiler calls instead of shell calls
+- [ ] Test on Windows platform
