@@ -31,7 +31,7 @@ var INDENT = "  ";
 var build_tasks = Empty[string*uint->void];
 var TEST_LOG = "setup.log";
 var SETUP_LOG = "setup.log";
-
+var CMD = "";
 
 // Package parameters
 var cfg = strdict[string](); 
@@ -527,19 +527,27 @@ class PkgTool {
         match Directory::filesin(dir_path) with
         |Some ?files => { 
           for file in files do
-                       if not (file.startswith ".") and 
-                          ((file.endswith #Config::config.EXT_SHLIB) 
-                           and (not (file.endswith ".flx"))
-                           and (not (file.endswith ".fdoc"))
-                           and (not (file.endswith ".md")))
-
-                          do
-//                          C_hack::ignore(FileSystem::unlink_file(dir_path.join(file)));
-                          assert_true(FileSystem::unlink_file(dir_path.join(file)) == 0,
-                            "Deleting " + file);
-                       done
-                     done
-                   }
+            var file_base = if (file.endswith ".flx") then
+              file.[ to file.len - 4]
+            elif (file.endswith ".fdoc") then
+              file.[ to file.len - 5]
+            else
+              ""
+            endif;
+            if not file_base == "" do
+            for ext in list (#Config::config.EXT_SHLIB,
+                                    #Config::config.EXT_EXE) do
+              match filetype(dir_path.join(file_base) + ext ) with 
+              |REGULAR => {  
+                assert_true(FileSystem::unlink_file(dir_path.join(file_base) + 
+                  ext) == 0,"Deleting " + file);
+              }
+              |_ => {}
+              endmatch;
+            done
+          done
+          done
+        }
         |_ => {}
         endmatch;
       }
@@ -815,6 +823,7 @@ open PkgTool;
         done
         }
        |?cmd when cmd == "dist" => { 
+        CMD = cmd;
         if (len(options) - valid_opts) > size(0) do
           invalid_opts(options,command);
         else
