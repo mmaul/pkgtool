@@ -74,7 +74,7 @@ with few clicks. The other nice thing is there is no seperate package meta-data.
 contained at the top of the package README.md. In fact you can see the package metadata for PkgTool simply by 
 looking at the top of this file.
 
-scoop - package manager
+scoop - Package Manager
 =====
 Scoop is the user interface to to distributed package management aspect ofPkgTool. Scoop allows you to view the
 contents of the litterbox package index, get and install packages from remote git repositories.
@@ -117,9 +117,9 @@ SetupTool - Build and Testing Framework
 So one can write programs with out build and test frameworks just fine. But if you want to share your software
 with others it really helps to have a build and test framework. If there is something wrong you can fix it, if you
 need to move an executable to some location or other you can do it. Once your code has gone out into the world
-you can't. That is why a test framework can shake out problems that might surface after release. A build frame
-work while it does make it easier to automate your builds, makes it easier for other people to build your code, or 
-easier for you to assemble binary or source distributions.
+you can't fix it quite so easily. That is why a using a test framework can shake out problems that might surface 
+after release. A build frame work makes it easier to automate your builds and makes it easier for other people to 
+build your code. It also makes it easier easier for you package binary and source distributions.
 
 SetupTool it PkgTool's solution to this. SetupTool is presented to the user as a Felix source file called 
 ''setup.flx'' located in the top level of the package directory. This is used to instantiate the build system and
@@ -131,12 +131,69 @@ setup.flx file can be quite small. Below is a minimum setup.flx
     SetupTool::run();
     
 That is all you need to build a Felix Application with Setup tool. What does that actually do for you?
-Profiding you are conforming to the App directory structure for your project it wil:
+Providing you are conforming to the App directory structure for your project it wil:
 * Compile all felix source in the bin directory to a static binary executable
 * Execute tests source located in the test directory report the results and stop the build on errors.
 * Allow you to install your application to the file system 
 * Allow you to create a binary distribution
 
+There are three package types App, Lib and WebApp; each has a specific directory strucuture and buid behaiors.
+
+###  App Package Directory Structure
+    README.md - Package metadata and documentation
+    app            
+       Application support code (Directory name is usualy same as package name) 
+    bin
+       Application frontend
+    config
+       Package config files
+    setup.flx - Build script
+    setup.log - Build log
+    test
+       Test code
+### App Package Default Behavior 
+#### Build Phase
+The flx files in the are compiled with flx compiler with the --static switch to generate an executable binary in
+the bin directory
+#### Test Phase
+The flx files in the test directory except those starting with a capital 'C' or 'D' are executed in the test context.
+Files starting with 'C' are reserved for configuration test scrips used in the Build Phase. Files starting with capital
+'D' are reserved for test datafiles.
+#### Install/Dist Phase
+Install phase will place binaries generated in bin directory in Felis INSTALL_ROOT/bin or if the --prefix=DIR switch was
+specified place the bin directory under the path specified in the --prefix option. The Dist variation of the Install
+Phase will create a dist folder inside the package dir and copy the executable files from the bin director into 
+a bin directory inside the dist folder.
+
+###  App Package Directory Structure
+    README.md - Package metadata and documentation
+    <app>        
+       Application support code (Directory name is usualy same as package name) and mostdefinately
+       should be what the LIBDIR parameter is set to
+    bin
+       Executables related to library
+    config
+       Package config files
+    examples
+       Example code
+    setup.flx - Build script
+    setup.log - Build log
+    test
+       Test code
+       
+### Lib Package Default Behavior 
+#### Build Phase
+The flx files in the are compiled with flx compiler with the --static switch to generate an executable binary in
+the bin directory
+#### Test Phase
+The flx files in the test directory except those starting with a capital 'C' or 'D' are executed in the test context.
+Files starting with 'C' are reserved for configuration test scrips used in the Build Phase. Files starting with capital
+'D' are reserved for test datafiles.
+#### Install/Dist Phase
+Install phase will place binaries generated in bin directory in Felis INSTALL_ROOT/bin or if the --prefix=DIR switch was
+specified place the bin directory under the path specified in the --prefix option. Library The Dist variation of the Install
+Phase will create a dist folder inside the package dir and copy the executable files from the bin director into 
+a bin directory inside the dist folder.
 
 
 ### SetupTool commands are presented below:
