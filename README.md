@@ -74,9 +74,12 @@ with few clicks. The other nice thing is there is no seperate package meta-data.
 contained at the top of the package README.md. In fact you can see the package metadata for PkgTool simply by 
 looking at the top of this file.
 
+##Litterbox Package Index
+The Litterbox Package Index is located at https://github.com/mmaul/litterbox
+
 scoop - Package Manager
 =====
-Scoop is the user interface to to distributed package management aspect ofPkgTool. Scoop allows you to view the
+Scoop is the user interface to to distributed package management aspect of PkgTool. Scoop allows you to view the
 contents of the litterbox package index, get and install packages from remote git repositories.
 
 ### Scoop commands are presented below:
@@ -339,7 +342,7 @@ calls to execute the 'flx' compiler frontend. It is available in the PkgTool thr
 libflx can be used outside of the Package tool frame work and would be quite useful for in an IDE.
 Good examples of usage of libflx can be found in the the PkgTool tests.
 
-Below is one such test
+Below is one such test:
 
     include "PKGTOOL/libflx_factory";
     include "PKGTOOL/pkgtool";
