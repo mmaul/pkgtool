@@ -59,7 +59,7 @@ var DRY_RUN = false;        //--dry-run
 var EXTRA_LIBDIR = "";      // -L[SOMETHING]
 var EXTRA_INCDIR = "";      // -I[SOMETHING]
 var PREFIX = "/usr/local";
-
+var FORCE = false;
 class PkgTool {
   // GLobal parameters
 
@@ -493,18 +493,25 @@ class PkgTool {
     done
     if BUILD_LIKE == WebApp do
       task("Installing package app files");
-      cp_root(BUILD_DIR, "app[/\\\].(.*\.flx)$",DEST_DIR);
+//      cp_root(BUILD_DIR, "app[/\\\].(.*\.flx)$",DEST_DIR);
+      cp_root(BUILD_DIR, "app[/\\\]"+NAME+"$",DEST_DIR);
       task("Installing package html files");
       cp_root(BUILD_DIR, "html[/\\\]..*",DEST_DIR);
       cp_root(BUILD_DIR, "html[/\\\]css[/\\\]..*",DEST_DIR);
       cp_root(BUILD_DIR, "html[/\\\]js[/\\\]..*",DEST_DIR);
       cp_root(BUILD_DIR, "html[/\\\]images[/\\\]..*",DEST_DIR);
     done
-    task("Installing package config files");
-    cp_root(BUILD_DIR, "config[/\\\].(.*\.fpc)$",DEST_DIR);
-    task("Installing package documentation and examples");
-    cp_root(BUILD_DIR, "README.md",((DEST_DIR.join("web")).join("packages")).join(NAME));
-    cp_root(BUILD_DIR, "examples[/\\\].(.*\.flx)",((DEST_DIR.join("web")).join("packages")).join(NAME));
+    if BUILD_LIKE == WebApp do
+      task("Installing webapp config files");
+      cp_root(BUILD_DIR, "config[/\\\].(.*\.cfg)$",DEST_DIR);
+    done
+    if BUILD_LIKE == Lib do
+      task("Installing package config files");
+      cp_root(BUILD_DIR, "config[/\\\].(.*\.fpc)$",DEST_DIR);
+      task("Installing package documentation and examples");
+      cp_root(BUILD_DIR, "README.md",((DEST_DIR.join("web")).join("packages")).join(NAME));
+      cp_root(BUILD_DIR, "examples[/\\\].(.*\.flx)",((DEST_DIR.join("web")).join("packages")).join(NAME));
+    done
   }
 
   virtual proc install() {

@@ -232,7 +232,11 @@ gen handle_local_options(optt:int*list[string]) = {
         valid_opts++;
       }
       |?option when option.startswith "--degitify" => {
-        DEGITIFY = false;
+        DEGITIFY = true;
+        valid_opts++;
+      }
+      |?option when option.startswith "--force" => {
+        FORCE = true;
         valid_opts++;
       }
       |?option => { unused_opts += option; }
@@ -251,6 +255,7 @@ proc install(cmd:string,options:list[string]) {
     if not DEST_DIR == "" do extra_opts += " --dest-dir=" + DEST_DIR + " "; done
     if not EXTRA_INCDIR == "" do extra_opts += " -I" + EXTRA_INCDIR + " "; done
     if not EXTRA_LIBDIR == "" do extra_opts += " -L" + EXTRA_LIBDIR + " "; done
+    if FORCE do extra_opts += " --force "; done
     if DRY_RUN  do extra_opts += " --dry-run "; done
     val pkg_dir = (LITTERBOX.join("build")).join(pkg);
     phase(q"Scooping package $(pkg) from litterbox.",
@@ -313,8 +318,6 @@ proc run() {
              endmatch;
            }
         |?cmd when cmd == "install" => { install(cmd,options); }
-        |?cmd when cmd == "force" => { install(cmd,options); }
-          
       |?cmd when cmd == "search" => { 
           banner("Search");
           phase("packages matching:"+str(options),(search options) );
