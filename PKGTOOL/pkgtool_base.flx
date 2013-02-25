@@ -476,6 +476,38 @@ class PkgTool {
     default_test();
   }
 
+  fun is_installed(name:string) = {
+    var cfg = read_cfg$
+     (((INSTALL_ROOT.join("web")).join("packages")).join(name)).join("README.md");
+    return 
+    match (get cfg "NAME") with
+    |Some ?v => (match (get cfg "VERSION") with |Some ?w => Some (atof(w)) |_ => Some 0.0 endmatch)
+    |_ => None[double]
+    endmatch; 
+  }  
+    
+
+  fun installed() = {
+    var instd = strdict[string]();   
+    var inst_base = (INSTALL_ROOT.join("web")).join("packages");
+    match Directory::filesin(inst_base) with
+    |Some ?files => {
+      for dir in files do
+        var pkg_dir = inst_base.join(dir);
+        match filetype(pkg_dir) with   
+        |DIRECTORY => {
+          var icfg = read_cfg(pkg_dir.join("README.md"));
+          add instd ((get icfg "NAME").or_else("")) ((get icfg "VERSION").or_else(""));
+        }
+        |_ => {}
+        endmatch;
+      done
+    }
+    |_ => {}
+    endmatch;
+    return instd;
+  }
+ 
   proc default_install() {
     if BUILD_LIKE == App or BUILD_LIKE == Lib do
       task("Installing bin files");
@@ -540,7 +572,7 @@ class PkgTool {
               match filetype(dir_path.join(file_base) + ext ) with 
               |REGULAR => {  
                 assert_true(FileSystem::unlink_file(dir_path.join(file_base) + 
-                  ext) == 0,"Deleting " + file);
+                  ext) == 0,"Deleting " + file_base + ext);
               }
               |_ => {}
               endmatch;

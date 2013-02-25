@@ -1,9 +1,11 @@
+//$ scoop - Distributed Felix package manager 
+
 SETUP_LOG="";//"scoop.log";
-//C_hack::ignore(FileSystem::unlink_file(SETUP_LOG));
 include "PKGTOOL/pkgtool";
 
 open PkgTool;
 open Filename;
+var LIST_INSTALLED = false;
 var HOME = 
   let ?h = Env::getenv "HOME" in
     if h!="" then h 
@@ -63,7 +65,7 @@ proc search (opts:list[string]) () {
    |Some ?files => { 
      for file in sort(filter (fun (f:string) => not f == "build" and not f.startswith ".") files) do
        var dir_path = LITTERBOX.join(file);
-        match filetype(dir_path) with
+        match filetype(dir_path) with 
        |DIRECTORY => {
         var pkg_readme = dir_path.join("README.md");
         match filetype(pkg_readme) with
@@ -73,8 +75,22 @@ proc search (opts:list[string]) () {
             match get pkg (toupper(itm.0)) with
             |Some ?pkg_v => { 
               match find((toupper(pkg_v)), (toupper(itm.1))) with
-              |Some _ => { task(((get pkg "NAME").or_else "UNKNOWN") + " ::  " ((get pkg "DESCRIPTION").or_else ""));
-                           goto enough; }
+              |Some _ => {
+	        var name = (get pkg "NAME").or_else("");
+                if not name == "" do
+                  var inst_ver = is_installed(name);
+                  var pkg_ver = atof(match get pkg "VERSION" with |Some ?v =>v |_ => "" endmatch);
+	          task$ (name + (match is_installed(name) with
+                  |Some ?inst_ver when inst_ver == pkg_ver => green_("\t*installed*") 
+                  |Some ?inst_ver when pkg_ver > inst_ver  => 
+                      red_("*\tnewer "+str(pkg_ver)+"*") 
+                  |_ =>  "\t"
+                  endmatch) + 
+                    " ::  "  + ((get pkg "DESCRIPTION").or_else ""));
+                  
+                done
+                goto enough; 
+              }
               |_ => {}
               endmatch;
             }
@@ -193,6 +209,7 @@ It then proceeds to execute the packages install script.
 Usage: scoop install [package]
 """;
       }
+
    |Cons (?cmd,_) when cmd == 'refresh'    => {
       println$ """
 Description: Pull a updated copy of the litterbox package directory.
@@ -338,9 +355,20 @@ proc run() {
       |?cmd when cmd == "help" => {
         help_command(options);
         }
+      |?cmd when cmd == "installed" => { 
+          banner("installed");
+          for pkg in installed() do
+           match pkg with
+           | ?p,?v when not p == "" => { task(INDENT+p+" ver:"+v); }
+           |_ => { }
+           endmatch; 
+           //println$ pkg;
+          done
+      }
       |?cmd => { invalid_cmd(cmd); }
       endmatch;
     }
+    
     |_ => { invalid_cmd("?"); }
     endmatch;
 }
