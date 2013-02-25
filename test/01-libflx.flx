@@ -36,13 +36,5 @@ endmatch;
 
 imply("Control returned to test harness");
 
-test_title("Testing flx_and_c_compile");
-match myflx.flx_and_c_compile("test/D01-libflx.flx") with
-|ERR[string] (?e,?m) => { 
-  test_fail("Returned with error code:"+e+":"+m);
-}
-|OK[string] ?m => {
-  assert_true(m == "A\na\n");
-}
-endmatch;
+
 

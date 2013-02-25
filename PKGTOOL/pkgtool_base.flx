@@ -324,6 +324,16 @@ class PkgTool {
   proc default_build() {
     var file="";
     var build_dirs = Empty[string];
+    task("Checking dependencies");
+    var cfg = read_cfg(BUILD_DIR.join("README.md"));
+    match (get cfg "DEPENDENCIES") with
+    |Some ?dependencies => {
+      for dependency in split(dependencies, ",") do
+        handle_dependency(dependency);
+      done          
+    }
+    |_ => {}
+    endmatch;
     if BUILD_LIKE == App or BUILD_LIKE == Lib do
       match Directory::filesin(BUILD_DIR.join("bin")) with
       |Some ?files => { 
@@ -480,12 +490,31 @@ class PkgTool {
     var cfg = read_cfg$
      (((INSTALL_ROOT.join("web")).join("packages")).join(name)).join("README.md");
     return 
-    match (get cfg "NAME") with
-    |Some ?v => (match (get cfg "VERSION") with |Some ?w => Some (atof(w)) |_ => Some 0.0 endmatch)
-    |_ => None[double]
-    endmatch; 
+      match (get cfg "NAME") with
+      |Some ?v => (match (get cfg "VERSION") with |Some ?w => Some (atof(w)) |_ => Some 0.0 endmatch)
+      |_ => None[double]
+      endmatch; 
   }  
-    
+   
+
+  proc handle_dependency(dependency:string) { 
+    match is_installed(dependency) with
+    |Some _ => { }
+    |None[float] => {
+      task("Installing required dependency:"+blue_(dependency));  
+      if (not System::system((INSTALL_ROOT.join("bin")).join("scoop")+" install "+
+          dependency) == 0) do
+        var msg = "unable to install package "+blue_(dependency)+
+          " which is required by "+NAME;
+        if not FORCE do
+          setup_fail(msg);
+        else
+          warning("Continuing anyways...");
+        done
+      done
+      }
+    endmatch;
+  }
 
   fun installed() = {
     var instd = strdict[string]();   

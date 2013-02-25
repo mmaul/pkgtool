@@ -293,6 +293,8 @@ object libflx() implements libflx_interface = {
         else
            return ERR[string] (3,"Unknown error in shell " + str e);
         done
+      else
+        return OK[string]();
       done
       return ERR[string] (e,"");
     }
@@ -331,6 +333,8 @@ object libflx() implements libflx_interface = {
           return ERR[string](3, "Unknown error in shell " + str e);
           
         done
+      else
+        return OK[string]("");
       done
       return ERR[string](e,"");
     }

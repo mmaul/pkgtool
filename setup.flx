@@ -22,7 +22,27 @@ instance PkgTool {
     default_build();
   }
 
+  proc install() {
+    default_install();
+    task("Installing libflx plugin");
+    cp_root(BUILD_DIR, LIBDIR.join("libflx"+#Config::config.EXT_SHLIB),
+      DEST_DIR.join("lib"));
+    if not CMD == "dist" do 
+    var bin_dir = (PREFIX.join("bin"));
+    match filetype(bin_dir) with
+    |DIRECTORY => { 
+      cp_root(BUILD_DIR.join("bin"),"scoop" + #Config::config.EXT_EXE,
+        bin_dir); 
+    }
+    |_ => { 
+      warning("Unable to install 'scoop' to " + bin_dir + ". " + 
+      "You can either run scoop from the Felix installation bin directory (" +
+      ((INSTALL_ROOT.join("bin")).join("scoop")) + 
+      " or install agin using the --prefix= option to specify a location");
+    }
+    endmatch;
+    done
+  }
 }
-
 
 SetupTool::run();
