@@ -268,6 +268,12 @@ Below are the recognized fields:
 |AUTHOR_URL  |                                       |      NO      |
 |LICENSE     |                                       |      NO      |
 
+There are hovever restrictions on feild values since it is possible that 
+the values could be used in the construction of shell commands. 
+Therefore the allowable characters are:
+
+    A-Za-z0-9,_':/+@. :space: -
+
 #### README.md and the Litterbox Package Index
 So you might like to share your code. When your ready all you need to do
 is send your README.md file to the Felix group mailing list. It will then
