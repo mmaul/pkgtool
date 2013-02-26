@@ -16,14 +16,12 @@ LIBDIR: PKGTOOL
 
 PKGTOOL is what happens when a build system, a package manager and a test 
 framework meet up at a bar and have a few too many drinks. Seriously though
-pkgtool is a underlying framwork that contains the common aspects. As an aside 
-a flx compiler API interface happend by at the bar towards the end and got in 
-on the fun.
+pkgtool is a framework that combines the common aspects of all three. 
+Also a flx compiler API interface happend by at the bar towards the end and 
+got in on the fun.
 
-Two user interfaces exist, the package manager ''scoop'' and the build framework 
-SetupTool. The package manager ''scoop'' exists as an independant executable 
-while SetupTool exists as a user implementable framework for package build 
-and test management.
+PkgTool is used to implement ''scoop'' a distributed package management 
+application. PkgTool is also used to implement SetupTool build/test/package management framework.
 
 Features
 =======
@@ -31,15 +29,14 @@ Features
 * Package build framework
 * Package test framework
 * Package installation framework
-* Distributed remote package repository framework
+* Distributed remote package repository 
 * Distributed package management application
 * Centeralized package directory
-* Programatic frendly inter face to the flx compiler frontend.
 
 Installation
 ============
 
-Installation is simple because PkgTool uses pkgtool for build and installation.
+Installation is simple because PkgTool uses PkgtTool for build and installation.
 All that is needed is:
 
     flx setup install
