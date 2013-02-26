@@ -1,3 +1,6 @@
+//$ pkgtool.flx
+//$ Author Mike Maul
+//$ See README.md for more details
 include "PKGTOOL/libflx_factory";
 include "PKGTOOL/pkgtool_base";
 open PkgTool;

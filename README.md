@@ -11,19 +11,19 @@ PKG_URL: https://github.com/mmaul/pkgtool
 CATEGORY: UTIL
 
 LIBDIR: PKGTOOL
+
 -----
 
 PKGTOOL is what happens when a build system, a package manager and a test 
 framework meet up at a bar and have a few too many drinks. Seriously though
-pkgtool is a underlying framwork that contains the common aspects of the
-different facets. As an aside the flx compiler API interface happend by at 
-the bar towards the end and got in on the fun.
+pkgtool is a underlying framwork that contains the common aspects. As an aside 
+a flx compiler API interface happend by at the bar towards the end and got in 
+on the fun.
 
-Specialization of the facets is presented to the user at the interface level.
 Two user interfaces exist, the package manager ''scoop'' and the build framework 
 SetupTool. The package manager ''scoop'' exists as an independant executable 
 while SetupTool exists as a user implementable framework for package build 
-management.
+and test management.
 
 Features
 =======
@@ -85,7 +85,8 @@ contents of the litterbox package index, get and install packages from remote gi
 ### Scoop commands are presented below:
 
     scoop refresh            <options> Refreshes litterbox package directory cache
-    scoop list               <options> Lists all packages on litterbox
+    scoop list    [installed] Lists all packages on litterbox or if 'installed'
+                              is supplied lists package that hae been installed
     scoop search  <package>  <options> Searches for package on litterbox
     scoop info    <package>  <options> Displays package info
     scoop get     <package>  <options> [destination]Pull package from litterbox to current working directory
@@ -133,7 +134,12 @@ setup.flx file can be quite small. Below is a minimum setup.flx
     BUILD_LIKE = App;
     SetupTool::run();
     
-That is all you need to build a Felix Application with Setup tool. What does that actually do for you?
+That is all you need to build a Felix Application with Setup tool. (Well that and
+a README.md package definition file and a conformant directory structure. As
+far as the directory structure goes 'scoop get lib-template mylib' can help you
+with that.)
+
+What does that actually do for you?
 Providing you are conforming to the App directory structure for your project it wil:
 * Compile all felix source in the bin directory to a static binary executable
 * Execute tests source located in the test directory report the results and stop the build on errors.
@@ -232,7 +238,45 @@ should be set in the setup.flx file. The contents of the cfg and html directorie
 specified in DEST_DIR.  The Dist variation of the Install will preform the same actions except copying to the dist
 directory.
 
+### README.md - Package metadata and Introductory Documentation
+The README.md file is a GitHub flavored markdown document that also contains
+package definition. It als MUST be in the top level directory of your package.
 
+#### What's in README.md?
+The packag definition component is located at the top of
+the README.md  and consistes of Key pair. The Package definition section ends
+when a like starting with 5 or more consecutive dashes. Below is an example.
+
+    NAME: mylib
+    VERSION: 1.01
+    PKG_URL: https://github.com/me/mylib.git
+    AUTHOR: Me
+    LIBDIR: MYLIB
+
+While you can put any thing you want in the README.md file if you want it
+to work with SetupTool you HAVE TO supply the fields marked REQUIRED.
+Below are the recognized fields:
+
+|Field       | Description                           |   Required   |
+|------------|---------------------------------------|--------------|
+|NAME        | Package Name                          |      YES     |
+|VERSION     | Numeric float only                    |      YES     |
+|PKG_URL     | Remote Git repo URL                   |      YES     |
+|LIBDIR      | Reccomended for lib's defaults to NAME| YES for LIBs |
+|DEPENDENCIES| Comma sep list of require packages    |      NO      |
+|CATEGORY    | Comma sep list of pkg categories      |      NO      |
+|PLATFORMS   | WIN32,OSX,UNIX                        |      NO      |
+|DESCRIPTION |                                       |      NO      |
+|AUTHOR      |                                       |      NO      |
+|AUTHOR_URL  |                                       |      NO      |
+|LICENSE     |                                       |      NO      |
+
+#### README.md and the Litterbox Package Index
+So you might like to share your code. When your ready all you need to do
+is send your README.md file to the Felix group mailing list. It will then
+be paced in the Litterbox package index on Git Hub in a directory named
+with your package name. If you like you can visit the Litterbox in your
+browser to see what it's like: https://github.com/mmaul/litterbox.git
 
 ### SetupTool commands are presented below:
 
@@ -375,13 +419,11 @@ Below is one such test:
 
 PkgTool Caveats
 ===============
-PkgTool has been coded to be cross platform. However it has not been verified on Windows, and there will have to
-be adjustments.
+PkgTool has been coded to be cross platform. It has not been verified on 
+Windows, and before it works there will be blood.
 
 PkgTool TODO
 ============
-- [ ] Dependency mangement
-- [ ] Installed Package Tracking
 - [ ] Package uninstall
 - [ ] Use libflx for compiler calls instead of shell calls
 - [ ] Test on Windows platform

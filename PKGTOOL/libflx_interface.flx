@@ -1,3 +1,6 @@
+//$ libflx_interface.flx
+//$ Author Mike Maul
+//$ See README.md for more details
 union compiler_result_code_t[T] = 
   |OK of T
   |ERR of int*string;

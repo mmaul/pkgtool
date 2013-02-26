@@ -1,6 +1,8 @@
 //$ scoop - Distributed Felix package manager 
+//$ Author Mike Maul
+//$ See README.md for more details
 
-SETUP_LOG="";//"scoop.log";
+SETUP_LOG="";
 include "PKGTOOL/pkgtool";
 
 open PkgTool;
@@ -80,13 +82,13 @@ proc search (opts:list[string]) () {
                 if not name == "" do
                   var inst_ver = is_installed(name);
                   var pkg_ver = atof(match get pkg "VERSION" with |Some ?v =>v |_ => "" endmatch);
-	          task$ (name + (match is_installed(name) with
-                  |Some ?inst_ver when inst_ver == pkg_ver => green_("\t*installed*") 
+	          task$ ((match is_installed(name) with
+                  |Some ?inst_ver when inst_ver == pkg_ver => blue_("*installed* ")+name+" "+str(pkg_ver) 
                   |Some ?inst_ver when pkg_ver > inst_ver  => 
-                      red_("*\tnewer "+str(pkg_ver)+"*") 
-                  |_ =>  "\t"
+                      red_("  *newer*   "+name+" "+ str(pkg_ver)) 
+                  |_ =>  "            "+yellow_(name+" "+ str(pkg_ver))
                   endmatch) + 
-                    " ::  "  + ((get pkg "DESCRIPTION").or_else ""));
+                    "   "  + NC_(((get pkg "DESCRIPTION").or_else "")));
                   
                 done
                 goto enough; 
@@ -138,18 +140,26 @@ proc info (pkg:string) () {
     println$ """
 scoop: A distributed package manager for Felix
 
-  scoop get     [package]  Pull package from litterbox to current working directory
-  scoop list               Lists all packages on litterbox
-  scoop search  [package]  Searches for package on litterbox
-  scoop info    [package]  Displays package info
-  scoop install [package]  Pull, builds and install package
-  scoop force   [package]  Pull, builds and install skipping tests phase
-  scoop refresh            Refreshes litterbox package directory cache
+usage:
+  scoop get     <package>  [options] Pull package from litterbox to current working directory
+  scoop list   [installed] [options] Lists all packages on litterbox. 
+                                     If 'installed' argument is passed then
+                                     only installed packages are listed.
+  scoop search  <package>  [options] Searches for package on litterbox
+  scoop info    <package>  [options] Displays package info
+  scoop install <package>  [options] Pull, builds and install package
+  scoop refresh            [options] Refreshes litterbox package directory cache
   scoop help               Displays this message
-  scoop help    [command]  Displays detailed help for command
+  scoop help    <command>  Displays detailed help for command
 
-usage: scoop cmd [package] 
-
+options:
+  --litterbox-url=[Repository URL]           Specify a new repository to use
+  --litterbox=[Local repository cache dir]   Use a specific litterbox cache dir
+  --degitify                                 Strip git repo info from package
+                                             only active for 'scoop get'
+  --force                                    Skip tests and do not stop on
+                                             missing dependencies durring
+                                             'scoop install' 
 """;
 NC();
 }
@@ -221,7 +231,12 @@ Usage: scoop refresh
       println$ """
 Description:  Displays help.
 """;
-      }
+    }
+    |Cons (?cmd,_) when cmd == 'installed'    => {
+      println$ """
+Description:  Displays a listing of all installed packages and versions.
+""";
+    }
     |?cmd                       => {
       invalid_cmd(join_list(cmd));
     }
@@ -287,9 +302,9 @@ proc install(cmd:string,options:list[string]) {
       var result_code = 0;
       if PLAT_WIN32 do
         task "Removing build directory:" + pkg_dir;
-        //result_code=system("rd /S /Q "+pkg_dir);
+        result_code=System::system("rd /S /Q "+pkg_dir);
       else
-        //result_code=system("rm -rf "+pkg_dir);
+        result_code=System::system("rm -rf "+pkg_dir);
       done
         if not result_code == 0 do
           warning$ "Unable to remove build directory:"+pkg_dir;
@@ -339,10 +354,23 @@ proc run() {
           banner("Search");
           phase("packages matching:"+str(options),(search options) );
         }
-      |?cmd when cmd == "list" => { 
-          banner("List");
+      |?cmd when cmd == "list" => {
+        match options with
+        |Cons (?opt,_) when opt == 'installed' => { 
+          banner("Installed Package");
+          for pkg in installed() do
+            match pkg with
+            | ?p,?v when not p == "" => { task(INDENT+p+" "+v); }
+            |_ => { }
+            endmatch; 
+          done
+        }
+        |_ => {
+          banner("Packages");
           phase("package listing:",(search (list('NAME','')) ));
         }
+        endmatch; 
+       }
       |?cmd when cmd == "info" => { 
           banner("Info");
           phase("packages info:" + ((head(options)).or_else ""),
@@ -355,16 +383,6 @@ proc run() {
       |?cmd when cmd == "help" => {
         help_command(options);
         }
-      |?cmd when cmd == "installed" => { 
-          banner("installed");
-          for pkg in installed() do
-           match pkg with
-           | ?p,?v when not p == "" => { task(INDENT+p+" ver:"+v); }
-           |_ => { }
-           endmatch; 
-           //println$ pkg;
-          done
-      }
       |?cmd => { invalid_cmd(cmd); }
       endmatch;
     }

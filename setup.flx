@@ -12,7 +12,7 @@ LONG_DESCRIPTION = """
 """;
 CATEGORY=list("UTIL");
 LIBDIR = "PKGTOOL";
-
+STOP_ON_TEST_FAILURES = false;
 open PkgTool;
 instance PkgTool {
 
@@ -26,7 +26,7 @@ instance PkgTool {
     default_install();
     task("Installing libflx plugin");
     cp_root(BUILD_DIR, LIBDIR.join("libflx"+#Config::config.EXT_SHLIB),
-      DEST_DIR.join("lib"));
+      DEST_DIR.join(r"lib"));
     if not CMD == "dist" do 
     var bin_dir = (PREFIX.join("bin"));
     match filetype(bin_dir) with

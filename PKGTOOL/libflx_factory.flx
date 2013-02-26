@@ -1,3 +1,6 @@
+//$ libflx_factory.flx
+//$ Author Mike Maul
+//$ See README.md for more details
 include "PKGTOOL/libflx_interface";
 include "plat/config";
 

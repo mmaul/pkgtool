@@ -1,3 +1,9 @@
+//$ libflx.flx
+//$ Author Mike Maul
+//$ See README.md for more details
+//$ Object wrapper of functionality in flx user frontend
+//$ for the purpose of creating application interface
+
 include "plat/config";
 include "PKGTOOL/libflx_interface";
 fun setup(config_data:string) = {
