@@ -268,12 +268,6 @@ Below are the recognized fields:
 |AUTHOR_URL  |                                       |      NO      |
 |LICENSE     |                                       |      NO      |
 
-There are hovever restrictions on feild values since it is possible that 
-the values could be used in the construction of shell commands. 
-Therefore the allowable characters are:
-
-    A-Za-z0-9,_':/+@. :space: -
-
 #### README.md and the Litterbox Package Index
 So you might like to share your code. When your ready all you need to do
 is send your README.md file to the Felix group mailing list. It will then
@@ -372,58 +366,12 @@ The procedure warning will display a warning message but allow the test to conti
 By default if a test program exists with a non zero status code the entire test is a failure and execution of 
 the Test phase halts as well as any follow on phases
 
-### Handline of test failures
-By default test failures that do no result in an abnormal exit of the test or were not from calling ''test_fail'' 
-will not halt execution of follow on phases. If you wish execution to stop on test failures set the global
-variable STOP_ON_TEST_FAILURES to true. As an alternative strategy you can determine if any test has failed by looking
-at the value of the global variable HAS_TEST_FAILURES.
-
 ## Logging
 
 All output presented to the console is also written to the file named in the variable SETUP_LOG. By default 
 the log file name is called 'setup_log'. Additionally logged output from the Test Phase can be seperated from the
 by setting the variable TEST_LOG to a desired file name. By default TEST_LOG is also set to 'setup.log'
 The contents of the log files are turnicated on each run of setup.flx.
-
-libflx the flx API interface
-============================
-libflx is progrmattic interface to the functionality offered by the 'flx' executable. It is implemented as a
-Felix object and offered as a plugin. It was motivated by a sick to deathness of stringing together argument
-strings to call the 'flx' compiler. Unfortunately it came a little late to the party so it is not currently
-used extensively in PkgTool, however in the future PkgTool may be refactored to use libflx inplace of shell
-calls to execute the 'flx' compiler frontend. It is available in the PkgTool through the run_flx procedure.
-libflx can be used outside of the Package tool frame work and would be quite useful for in an IDE.
-Good examples of usage of libflx can be found in the the PkgTool tests.
-
-Below is one such test:
-
-    include "PKGTOOL/libflx_factory";
-    include "PKGTOOL/pkgtool";
-    open PkgTool;
-    var myflx = libflx_factory();
-    myflx.set_dbug(false);
-    myflx.set_showcode(true);
-    myflx.set_snort(true);
-    match myflx.init_compiler() with
-    |OK[string] => {
-      imply("Compiler initialization");
-      match myflx.flx_compile("test/D01-libflx.flx") with
-      |OK[string] => {
-        imply("Compiliation of D01-libflx.flx");
-        match myflx.c_compile() with
-          |ERR[string] (?e,?m) => { test_fail("Returned with error code:"+e+":"+m); }
-          |OK[string] ?m => {
-          assert_true(m == "A\na\n", 
-            "Compiling D01-libflx.flx to shared object and running");
-        }
-        endmatch;
-      }
-      |ERR[string] (?e,?m) => { test_fail("Returned with error code:"+e+":"+m);}
-      endmatch;
-    }
-    |ERR[string] (?e,?m) => { test_fail("Returned with error code:"+e+":"+m); }
-    endmatch;
-    imply("Control returned to test harness");
 
 
 PkgTool Caveats
@@ -434,5 +382,4 @@ Windows, and before it works there will be blood.
 PkgTool TODO
 ============
 - [ ] Package uninstall
-- [ ] Use libflx for compiler calls instead of shell calls
 - [ ] Test on Windows platform
