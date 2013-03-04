@@ -823,7 +823,7 @@ requires_slibs: $(dlibs)
 //$ implementaion of default install behavior see README.md for
 //$ discussion of behavior 
   proc default_install() {
-    if (not NAME == "scoop") and (BUILD_LIKE == App or BUILD_LIKE == Lib) do
+    if (not NAME == "pkgtool") and (BUILD_LIKE == App or BUILD_LIKE == Lib) do
       task("Installing bin files");
       cp_root(BUILD_DIR, "bin[/\\][^.][a-zA-Z0-9_-]+$",DEST_DIR);
       if PLAT_WIN32 do
@@ -962,7 +962,7 @@ requires_slibs: $(dlibs)
       |Some ?pkg_k => {
         if not match is_installed(pkg) with |Some _ => true |_ => false endmatch do
           noneed = false;
-          task(INDENT"Found that "+blue_("package")+
+          task(INDENT"Found that "+blue_(pkg)+
             " was installed in the past but is not currently installed");
           match prompt(INDENT+"Would you like to re-install "+blue_(pkg),
                        "Yn") with  
