@@ -823,7 +823,7 @@ requires_slibs: $(dlibs)
 //$ implementaion of default install behavior see README.md for
 //$ discussion of behavior 
   proc default_install() {
-println$ "NAME:"+NAME+":";
+
     if BUILD_LIKE == App or BUILD_LIKE == Lib do
       if not NAME == "pkgtool" do
         task("Installing bin files");
