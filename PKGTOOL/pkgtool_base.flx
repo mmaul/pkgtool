@@ -823,14 +823,17 @@ requires_slibs: $(dlibs)
 //$ implementaion of default install behavior see README.md for
 //$ discussion of behavior 
   proc default_install() {
-    if (not NAME == "pkgtool") and (BUILD_LIKE == App or BUILD_LIKE == Lib) do
-      task("Installing bin files");
-      cp_root(BUILD_DIR, "bin[/\\][^.][a-zA-Z0-9_-]+$",DEST_DIR);
-      if PLAT_WIN32 do
-        match filetype(PREFIX) with
-        |DIRECTORY => {cp_root(BUILD_DIR, "bin[/\\][^.][a-zA-Z0-9_-]+$",PREFIX); }
-        |_ => {}
-        endmatch;
+println$ "NAME:"+NAME+":";
+    if BUILD_LIKE == App or BUILD_LIKE == Lib do
+      if not NAME == "pkgtool" do
+        task("Installing bin files");
+        cp_root(BUILD_DIR, "bin[/\\][^.][a-zA-Z0-9_-]+$",DEST_DIR);
+        if PLAT_WIN32 do
+          match filetype(PREFIX) with
+          |DIRECTORY => {cp_root(BUILD_DIR, "bin[/\\][^.][a-zA-Z0-9_-]+$",PREFIX); }
+          |_ => {}
+          endmatch;
+        done
       done
     done
     if BUILD_LIKE == Lib do

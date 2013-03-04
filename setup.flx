@@ -17,7 +17,6 @@ open PkgTool;
 instance PkgTool {
 
   proc install() {
-    default_install();
     if not CMD == "dist" do 
     var bin_dir = (PREFIX.join("bin"));
     match filetype(bin_dir) with
@@ -51,6 +50,7 @@ instance PkgTool {
     }
     endmatch;
     done
+    default_install();
   }
 }
 
