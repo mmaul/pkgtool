@@ -1236,6 +1236,8 @@ noinline  proc run() {
     var cfg:strdict[string];
     var opts = Empty[string];
     var valid_opts = 0;
+    var build_ok_fn = (BUILD_DIR.join("config")).join("BUILD.OK");
+    var test_ok_fn = (BUILD_DIR.join("test")).join("TEST.OK");
     match tail(System::args()) with
     |Cons (?command,?options) => {
     valid_opts,opts = handle_global_options(options); 
@@ -1260,12 +1262,18 @@ noinline  proc run() {
     done
       match command with
       |?cmd when cmd == "build" => { 
+        if FileStat::fileexists(build_ok_fn) do
+          C_hack::ignore(FileSystem::unlink_file(build_ok_fn));
+        done
         if (len(options) - valid_opts) > size(0) do
           invalid_opts(options,command);
         else
 	  banner(q"Building package $(NAME)");
           check_dependencies();
           phase("Build",build);
+          var build_ok:ofile = fopen_output(build_ok_fn);
+          write(build_ok,"BUILD.OK\n");
+          fclose(build_ok);
         done
         }
       |?cmd when cmd == "test" => { 
@@ -1274,7 +1282,9 @@ noinline  proc run() {
         else
           banner(q"Testing package $(NAME)");
           check_dependencies();
-          phase("Build",build);
+          if not FileStat::fileexists(build_ok_fn) do
+	    phase("Build",build);
+          done
           phase("Test",test);
         done
         }
@@ -1284,10 +1294,12 @@ noinline  proc run() {
         else
           banner(q"Installing package $(NAME)");
 // Decoupling build and test from install for now
-          match filetype((BUILD_DIR.join("test")).join("TEST.OK")) with
+          match filetype(test_ok_fn) with
           |NONEXISTANT => {
             check_dependencies();
-            phase("Build",build);
+            if not FileStat::fileexists(build_ok_fn) do
+              phase("Build",build);
+            done
             phase("Test",test);
           }
           |_ => {}
@@ -1306,7 +1318,9 @@ noinline  proc run() {
           invalid_opts(options,command);
         else
           banner(q"Installing with force package $(NAME)"); 
-//          phase("Build",build);
+          if not FileStat::fileexists(build_ok_fn) do
+            phase("Build",build);
+          done
           phase("Install",install);
 //          phase("Clean",clean);
           if DRY_RUN do
@@ -1321,8 +1335,12 @@ noinline  proc run() {
           invalid_opts(options,command);
         else
           banner(q"Creating distribution $(NAME)");
-          phase("Build",build);
-          phase("Test",test);
+          if not FileStat::fileexists(build_ok_fn) do
+            phase("Build",build);
+          done
+          if not FileStat::fileexists(test_ok_fn) do
+            phase("Test",test);
+          done
           DEST_DIR = BUILD_DIR.join("dist");
           phase("Install",install);
           if DRY_RUN do
