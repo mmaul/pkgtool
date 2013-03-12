@@ -2,7 +2,7 @@ NAME: pkgtool
 
 DESCRIPTION: Packaging Management Tool
 
-VERSION: .031
+VERSION: .032
 
 AUTHOR:  Mike Maul
 
@@ -10,7 +10,7 @@ PKG_URL: https://github.com/mmaul/pkgtool
 
 CATEGORY: UTIL
 
-LIBDIR: PKGTOOL
+LIBDIR: std/felix
 
 -----
 
